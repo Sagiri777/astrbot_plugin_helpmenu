@@ -20,7 +20,7 @@ class MyPlugin(Star):
         plugins = self.context.get_all_stars()
         plugin_data_path = get_astrbot_data_path()
         with open(f"{plugin_data_path}/example.txt", "w") as f:
-            f.write(plugins)
+            f.write(str(plugins))
         yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
 
     async def terminate(self):
