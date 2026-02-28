@@ -1,0 +1,10 @@
+{
+  "admin_name": {
+    "description": "登录ASTR后台的用户名",
+    "type": "string"
+  },
+  "admin_password": {
+    "description": "登录ASTR后台的密码",
+    "type": "string"
+  }
+}
