@@ -66,6 +66,13 @@ class MyPlugin(Star):
         self._log_debug("已将配置密码转换为 MD5 后提交登录。")
         return md5_password
 
+    def _get_base_url(self) -> str:
+        return (
+            self.config.get("ASTRHost")
+            or self.config.get("dashboard_base_url")
+            or "http://127.0.0.1:6185"
+        ).rstrip("/")
+
     async def _login_and_get_token(self) -> str:
         admin_name = (self.config.get("admin_name") or "").strip()
         admin_password = (self.config.get("admin_password") or "").strip()
@@ -74,11 +81,7 @@ class MyPlugin(Star):
                 "插件配置缺少 admin_name 或 admin_password，请先填写。",
             )
 
-        base_url = (
-            self.config.get("dashboard_base_url") or "http://127.0.0.1:6185"
-        ).rstrip(
-            "/",
-        )
+        base_url = self._get_base_url()
         login_url = f"{base_url}/api/auth/login"
         payload = {
             "username": admin_name,
@@ -120,11 +123,7 @@ class MyPlugin(Star):
                 return token
 
     async def _fetch_command_items(self, token: str) -> list[dict]:
-        base_url = (
-            self.config.get("dashboard_base_url") or "http://127.0.0.1:6185"
-        ).rstrip(
-            "/",
-        )
+        base_url = self._get_base_url()
         commands_url = f"{base_url}/api/commands"
         headers = {"Authorization": f"Bearer {token}"}
         timeout = aiohttp.ClientTimeout(total=18)
@@ -235,9 +234,9 @@ class MyPlugin(Star):
                 (
                     f"第 {page_index + 1}/{total_pages} 页 | "
                     f"命令数: {self._total_items} | "
-                    f"更新时间: {self._last_update}"
+                    f"文档更新时间: {self._last_update}"
                 ),
-                "用法: /helpMenu <页码|next|prev> | /updateHelpMenu",
+                "用法: /helpMenu <页码|next|prev> | /updateHelpMenu（仅限管理员）",
                 "",
             ]
 

@@ -7,6 +7,11 @@
     "description": "登录ASTR后台的密码",
     "type": "string"
   },
+  "ASTRHost": {
+    "description": "ASTR 后台地址",
+    "type": "string",
+    "default": "http://127.0.0.1:6185"
+  },
   "debug": {
     "description": "Debug Mode",
     "type": "bool",
