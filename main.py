@@ -30,12 +30,32 @@ class MyPlugin(Star):
         self._last_update = "never"
         self._session_page: dict[str, int] = {}
 
+    def _is_debug_enabled(self) -> bool:
+        return bool(self.config.get("debug", False))
+
+    def _log(self, message: str) -> None:
+        logger.info(f"[helpmenu] {message}")
+
+    def _log_debug(self, message: str) -> None:
+        if self._is_debug_enabled():
+            logger.info(f"[helpmenu][debug] {message}")
+
     async def initialize(self):
         ok, message = await self._refresh_help_cache()
         if ok:
-            logger.info(f"[helpmenu] {message}")
+            self._log(message)
         else:
             logger.warning(f"[helpmenu] {message}")
+
+    def _clear_sensitive_config_if_needed(self) -> None:
+        if self._is_debug_enabled():
+            self._log_debug("Skip clearing admin credentials because debug is enabled.")
+            return
+
+        self.config["admin_name"] = ""
+        self.config["admin_password"] = ""
+        self.config.save_config()
+        self._log("Refresh succeeded, cleared admin_name/admin_password from plugin config.")
 
     async def _login_and_get_token(self) -> str:
         admin_name = (self.config.get("admin_name") or "").strip()
@@ -52,16 +72,28 @@ class MyPlugin(Star):
         )
         login_url = f"{base_url}/api/auth/login"
         payload = {"username": admin_name, "password": admin_password}
+        self._log_debug(f"Login URL: {login_url}")
+        self._log_debug(f"Login username: {admin_name}")
 
         timeout = aiohttp.ClientTimeout(total=12)
         async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             async with session.post(login_url, json=payload) as response:
-                data = await response.json()
-                token = (
-                    data.get("data", {}).get("token", "")
-                    if isinstance(data, dict)
-                    else ""
-                )
+                data = await response.json(content_type=None)
+                self._log_debug(f"Login HTTP status: {response.status}")
+                self._log_debug(f"Login response: {data}")
+
+                if not isinstance(data, dict):
+                    raise ValueError(
+                        f"Login response is not a JSON object: {type(data).__name__}",
+                    )
+
+                data_node = data.get("data")
+                if not isinstance(data_node, dict):
+                    raise ValueError(
+                        f"Login response field 'data' is invalid: {data_node}",
+                    )
+
+                token = str(data_node.get("token") or "").strip()
                 if not token:
                     raise ValueError(
                         f"Login failed: status={response.status}, body={data}",
@@ -77,13 +109,30 @@ class MyPlugin(Star):
         commands_url = f"{base_url}/api/commands"
         headers = {"Authorization": f"Bearer {token}"}
         timeout = aiohttp.ClientTimeout(total=18)
+        self._log_debug(f"Commands URL: {commands_url}")
 
         async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             async with session.get(commands_url, headers=headers) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
+                self._log_debug(f"Commands HTTP status: {response.status}")
                 if not isinstance(data, dict):
-                    return []
-                return data.get("data", {}).get("items", [])
+                    raise ValueError(
+                        f"Commands response is not a JSON object: {type(data).__name__}",
+                    )
+
+                data_node = data.get("data")
+                if not isinstance(data_node, dict):
+                    raise ValueError(
+                        f"Commands response field 'data' is invalid: {data_node}",
+                    )
+
+                items = data_node.get("items", [])
+                if not isinstance(items, list):
+                    raise ValueError(
+                        f"Commands response field 'items' is invalid: {type(items).__name__}",
+                    )
+                self._log_debug(f"Commands items count (raw): {len(items)}")
+                return items
 
     def _extract_allowed_items(self, raw_items: list[dict]) -> list[CommandDocItem]:
         collected: list[CommandDocItem] = []
@@ -184,19 +233,24 @@ class MyPlugin(Star):
     async def _refresh_help_cache(self) -> tuple[bool, str]:
         async with self._refresh_lock:
             try:
+                self._log("Refreshing help menu cache...")
                 token = await self._login_and_get_token()
                 raw_items = await self._fetch_command_items(token)
                 parsed_items = self._extract_allowed_items(raw_items)
+                self._log_debug(f"Commands items count (filtered): {len(parsed_items)}")
 
                 self._total_items = len(parsed_items)
                 self._last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 self._help_pages = self._build_pages(parsed_items)
                 self._session_page.clear()
+                self._clear_sensitive_config_if_needed()
                 return (
                     True,
                     f"Help menu refreshed successfully ({self._total_items} commands).",
                 )
             except Exception as exc:  # noqa: BLE001
+                if self._is_debug_enabled():
+                    logger.exception("[helpmenu] Refresh failed in debug mode.")
                 return False, f"Failed to refresh help menu: {exc}"
 
     def _parse_help_arg(self, message: str) -> str:
