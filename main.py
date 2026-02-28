@@ -189,9 +189,7 @@ class MyPlugin(Star):
                         plugin_name = clean_text(
                             item.get("plugin_display_name"), ""
                         ) or clean_text(item.get("plugin"), "未知插件")
-                        description = clean_text(
-                            item.get("description"), "暂无说明。"
-                        )
+                        description = clean_text(item.get("description"), "暂无说明。")
                         aliases = [
                             clean_text(alias, "")
                             for alias in item.get("aliases", [])
@@ -306,6 +304,7 @@ class MyPlugin(Star):
 
         return 1, f"页码参数无效: {arg}，已显示第 1 页。\n\n"
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("updateHelpMenu")
     async def update_helpmenu(self, event: AstrMessageEvent):
         """刷新已生成的帮助菜单文档。"""
