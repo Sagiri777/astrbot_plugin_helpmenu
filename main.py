@@ -23,6 +23,7 @@ class CommandDocItem:
 @register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "0.1.0")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
+    _EXCLUDED_PLUGINS = {"builtin_commands"}
 
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -174,6 +175,10 @@ class MyPlugin(Star):
         def walk(items: list[dict]) -> None:
             for item in items:
                 if not isinstance(item, dict):
+                    continue
+
+                plugin_id = str(item.get("plugin") or "").strip()
+                if plugin_id in self._EXCLUDED_PLUGINS:
                     continue
 
                 item_type = item.get("type", "")
