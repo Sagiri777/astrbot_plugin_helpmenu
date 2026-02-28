@@ -8,7 +8,7 @@
     "type": "string"
   },
   "debug": {
-    "description": "是否开启调试日志。开启后输出详细日志，且刷新成功后不会清空用户名密码",
+    "description": "Debug Mode",
     "type": "bool",
     "default": false
   }

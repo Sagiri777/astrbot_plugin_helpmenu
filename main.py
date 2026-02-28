@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -27,7 +28,7 @@ class MyPlugin(Star):
         self._refresh_lock = asyncio.Lock()
         self._help_pages: list[str] = []
         self._total_items = 0
-        self._last_update = "never"
+        self._last_update = "从未"
         self._session_page: dict[str, int] = {}
 
     def _is_debug_enabled(self) -> bool:
@@ -49,20 +50,28 @@ class MyPlugin(Star):
 
     def _clear_sensitive_config_if_needed(self) -> None:
         if self._is_debug_enabled():
-            self._log_debug("Skip clearing admin credentials because debug is enabled.")
+            self._log_debug("Debug 模式已开启，跳过清空账号密码。")
             return
 
         self.config["admin_name"] = ""
         self.config["admin_password"] = ""
         self.config.save_config()
-        self._log("Refresh succeeded, cleared admin_name/admin_password from plugin config.")
+        self._log("刷新成功，已清空配置中的 admin_name/admin_password。")
+
+    def _build_login_password(self, raw_password: str) -> str:
+        if re.fullmatch(r"[0-9a-fA-F]{32}", raw_password):
+            self._log_debug("检测到配置密码已是 32 位 MD5，直接用于登录。")
+            return raw_password.lower()
+        md5_password = hashlib.md5(raw_password.encode("utf-8")).hexdigest()  # noqa: S324
+        self._log_debug("已将配置密码转换为 MD5 后提交登录。")
+        return md5_password
 
     async def _login_and_get_token(self) -> str:
         admin_name = (self.config.get("admin_name") or "").strip()
         admin_password = (self.config.get("admin_password") or "").strip()
         if not admin_name or not admin_password:
             raise ValueError(
-                "Missing admin_name/admin_password in plugin config (_conf_schema.json).",
+                "插件配置缺少 admin_name 或 admin_password，请先填写。",
             )
 
         base_url = (
@@ -71,32 +80,42 @@ class MyPlugin(Star):
             "/",
         )
         login_url = f"{base_url}/api/auth/login"
-        payload = {"username": admin_name, "password": admin_password}
-        self._log_debug(f"Login URL: {login_url}")
-        self._log_debug(f"Login username: {admin_name}")
+        payload = {
+            "username": admin_name,
+            "password": self._build_login_password(admin_password),
+        }
+        self._log_debug(f"登录地址: {login_url}")
+        self._log_debug(f"登录用户名: {admin_name}")
 
         timeout = aiohttp.ClientTimeout(total=12)
         async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             async with session.post(login_url, json=payload) as response:
                 data = await response.json(content_type=None)
-                self._log_debug(f"Login HTTP status: {response.status}")
-                self._log_debug(f"Login response: {data}")
+                self._log_debug(f"登录状态码: {response.status}")
+                self._log_debug(f"登录响应: {data}")
 
                 if not isinstance(data, dict):
                     raise ValueError(
-                        f"Login response is not a JSON object: {type(data).__name__}",
+                        f"登录接口返回格式异常: {type(data).__name__}",
                     )
+
+                status = str(data.get("status") or "").lower()
+                message = str(data.get("message") or "").strip()
+                if status != "ok":
+                    if "用户名或密码错误" in message:
+                        raise ValueError("后台用户名或密码错误，请检查插件配置。")
+                    raise ValueError(f"登录失败: {message or '未知错误'}")
 
                 data_node = data.get("data")
                 if not isinstance(data_node, dict):
                     raise ValueError(
-                        f"Login response field 'data' is invalid: {data_node}",
+                        f"登录响应中的 data 字段异常: {data_node}",
                     )
 
                 token = str(data_node.get("token") or "").strip()
                 if not token:
                     raise ValueError(
-                        f"Login failed: status={response.status}, body={data}",
+                        "登录成功但未获取到 token。",
                     )
                 return token
 
@@ -109,29 +128,34 @@ class MyPlugin(Star):
         commands_url = f"{base_url}/api/commands"
         headers = {"Authorization": f"Bearer {token}"}
         timeout = aiohttp.ClientTimeout(total=18)
-        self._log_debug(f"Commands URL: {commands_url}")
+        self._log_debug(f"命令列表地址: {commands_url}")
 
         async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             async with session.get(commands_url, headers=headers) as response:
                 data = await response.json(content_type=None)
-                self._log_debug(f"Commands HTTP status: {response.status}")
+                self._log_debug(f"命令列表状态码: {response.status}")
                 if not isinstance(data, dict):
                     raise ValueError(
-                        f"Commands response is not a JSON object: {type(data).__name__}",
+                        f"命令接口返回格式异常: {type(data).__name__}",
                     )
+
+                status = str(data.get("status") or "").lower()
+                message = str(data.get("message") or "").strip()
+                if status != "ok":
+                    raise ValueError(f"获取命令列表失败: {message or '未知错误'}")
 
                 data_node = data.get("data")
                 if not isinstance(data_node, dict):
                     raise ValueError(
-                        f"Commands response field 'data' is invalid: {data_node}",
+                        f"命令接口中的 data 字段异常: {data_node}",
                     )
 
                 items = data_node.get("items", [])
                 if not isinstance(items, list):
                     raise ValueError(
-                        f"Commands response field 'items' is invalid: {type(items).__name__}",
+                        f"命令接口中的 items 字段异常: {type(items).__name__}",
                     )
-                self._log_debug(f"Commands items count (raw): {len(items)}")
+                self._log_debug(f"命令总数(原始): {len(items)}")
                 return items
 
     def _extract_allowed_items(self, raw_items: list[dict]) -> list[CommandDocItem]:
@@ -164,9 +188,9 @@ class MyPlugin(Star):
                     if command:
                         plugin_name = clean_text(
                             item.get("plugin_display_name"), ""
-                        ) or clean_text(item.get("plugin"), "unknown")
+                        ) or clean_text(item.get("plugin"), "未知插件")
                         description = clean_text(
-                            item.get("description"), "No description."
+                            item.get("description"), "暂无说明。"
                         )
                         aliases = [
                             clean_text(alias, "")
@@ -197,7 +221,7 @@ class MyPlugin(Star):
         self, items: list[CommandDocItem], page_size: int = 12
     ) -> list[str]:
         if not items:
-            return ["No visible commands yet. Use /updateHelpMenu to refresh."]
+            return ["当前暂无可展示命令，请先执行 /updateHelpMenu 刷新。"]
 
         pages: list[str] = []
         total_pages = (len(items) + page_size - 1) // page_size
@@ -209,13 +233,13 @@ class MyPlugin(Star):
                 grouped[item.plugin_name].append(item)
 
             lines = [
-                "Help Menu",
+                "指令帮助菜单",
                 (
-                    f"Page {page_index + 1}/{total_pages} | "
-                    f"Commands: {self._total_items} | "
-                    f"Updated: {self._last_update}"
+                    f"第 {page_index + 1}/{total_pages} 页 | "
+                    f"命令数: {self._total_items} | "
+                    f"更新时间: {self._last_update}"
                 ),
-                "Use: /helpMenu <page|next|prev> | /updateHelpMenu",
+                "用法: /helpMenu <页码|next|prev> | /updateHelpMenu",
                 "",
             ]
 
@@ -224,7 +248,7 @@ class MyPlugin(Star):
                 for entry in grouped[plugin_name]:
                     lines.append(f"/{entry.command} - {entry.description}")
                     if entry.aliases:
-                        lines.append(f"  aliases: {', '.join(entry.aliases)}")
+                        lines.append(f"  别名: {', '.join(entry.aliases)}")
                 lines.append("")
 
             pages.append("\n".join(lines).strip())
@@ -233,11 +257,11 @@ class MyPlugin(Star):
     async def _refresh_help_cache(self) -> tuple[bool, str]:
         async with self._refresh_lock:
             try:
-                self._log("Refreshing help menu cache...")
+                self._log("开始刷新帮助菜单缓存...")
                 token = await self._login_and_get_token()
                 raw_items = await self._fetch_command_items(token)
                 parsed_items = self._extract_allowed_items(raw_items)
-                self._log_debug(f"Commands items count (filtered): {len(parsed_items)}")
+                self._log_debug(f"命令总数(过滤后): {len(parsed_items)}")
 
                 self._total_items = len(parsed_items)
                 self._last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -246,12 +270,12 @@ class MyPlugin(Star):
                 self._clear_sensitive_config_if_needed()
                 return (
                     True,
-                    f"Help menu refreshed successfully ({self._total_items} commands).",
+                    f"帮助菜单刷新成功，共 {self._total_items} 条可用命令。",
                 )
             except Exception as exc:  # noqa: BLE001
                 if self._is_debug_enabled():
-                    logger.exception("[helpmenu] Refresh failed in debug mode.")
-                return False, f"Failed to refresh help menu: {exc}"
+                    logger.exception("[helpmenu] Debug 模式下刷新失败。")
+                return False, f"帮助菜单刷新失败：{exc}"
 
     def _parse_help_arg(self, message: str) -> str:
         normalized = re.sub(r"\s+", " ", (message or "").strip())
@@ -280,27 +304,27 @@ class MyPlugin(Star):
                 page = total_pages
             return page, ""
 
-        return 1, f"Invalid page argument: {arg}. Showing page 1.\n\n"
+        return 1, f"页码参数无效: {arg}，已显示第 1 页。\n\n"
 
     @filter.command("updateHelpMenu")
     async def update_helpmenu(self, event: AstrMessageEvent):
-        """Refresh the generated help menu document."""
+        """刷新已生成的帮助菜单文档。"""
         ok, message = await self._refresh_help_cache()
         if ok:
             yield event.plain_result(message)
             return
         yield event.plain_result(
-            f"{message}\nPlease check dashboard address and admin credentials."
+            f"{message}\n请检查 Dashboard 地址、用户名和密码是否正确。"
         )
 
     @filter.command("helpMenu")
     async def helpmenu(self, event: AstrMessageEvent):
-        """Show generated help menu with pagination support."""
+        """展示支持翻页的帮助菜单。"""
         if not self._help_pages:
             ok, message = await self._refresh_help_cache()
             if not ok:
                 yield event.plain_result(
-                    f"{message}\nPlease run /updateHelpMenu after fixing config.",
+                    f"{message}\n修正配置后请执行 /updateHelpMenu 重新刷新。",
                 )
                 return
 
