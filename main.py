@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import re
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -22,6 +22,8 @@ class CommandDocItem:
 
 @register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "0.1.0")
 class MyPlugin(Star):
+    _SESSION_PAGE_CACHE_MAX_SIZE = 1024
+
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
@@ -29,7 +31,7 @@ class MyPlugin(Star):
         self._help_pages: list[str] = []
         self._total_items = 0
         self._last_update = "从未"
-        self._session_page: dict[str, int] = {}
+        self._session_page: OrderedDict[str, int] = OrderedDict()
 
     def _is_debug_enabled(self) -> bool:
         return bool(self.config.get("debug", False))
@@ -281,17 +283,36 @@ class MyPlugin(Star):
             return ""
         return parts[1].strip().lower()
 
+    def _get_session_page(self, session_id: str) -> int:
+        page = self._session_page.get(session_id)
+        if page is None:
+            return 1
+        self._session_page.move_to_end(session_id)
+        return page
+
+    def _set_session_page(self, session_id: str, page: int) -> None:
+        self._session_page[session_id] = page
+        self._session_page.move_to_end(session_id)
+        if len(self._session_page) <= self._SESSION_PAGE_CACHE_MAX_SIZE:
+            return
+
+        evicted_session, _ = self._session_page.popitem(last=False)
+        self._log_debug(
+            f"session page cache exceeded {self._SESSION_PAGE_CACHE_MAX_SIZE}, "
+            f"evicted session: {evicted_session}",
+        )
+
     def _resolve_page(self, arg: str, session_id: str) -> tuple[int, str]:
         total_pages = max(1, len(self._help_pages))
         if not arg:
-            page = self._session_page.get(session_id, 1)
+            page = self._get_session_page(session_id)
             return min(max(page, 1), total_pages), ""
 
         if arg in {"next", "n", "下页", "下一页"}:
-            page = self._session_page.get(session_id, 1) + 1
+            page = self._get_session_page(session_id) + 1
             return min(page, total_pages), ""
         if arg in {"prev", "p", "上页", "上一页"}:
-            page = self._session_page.get(session_id, 1) - 1
+            page = self._get_session_page(session_id) - 1
             return max(page, 1), ""
         if arg.isdigit():
             page = int(arg)
@@ -328,7 +349,7 @@ class MyPlugin(Star):
 
         arg = self._parse_help_arg(event.message_str)
         page, warning = self._resolve_page(arg, event.get_session_id())
-        self._session_page[event.get_session_id()] = page
+        self._set_session_page(event.get_session_id(), page)
         text = self._help_pages[page - 1]
         if warning:
             text = f"{warning}{text}"
