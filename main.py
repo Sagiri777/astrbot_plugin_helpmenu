@@ -31,6 +31,8 @@ class MyPlugin(Star):
         super().__init__(context)
         self.config = config
         self._refresh_lock = asyncio.Lock()
+        self._session_page_lock = asyncio.Lock()
+        self._http_session_lock = asyncio.Lock()
         self._help_pages: list[str] = []
         self._total_items = 0
         self._last_update = "从未"
@@ -39,6 +41,7 @@ class MyPlugin(Star):
         self._token_expire_at: int = 0
         self._cached_admin_name: str = ""
         self._cached_admin_password: str = ""
+        self._http_session: aiohttp.ClientSession | None = None
 
     def _is_debug_enabled(self) -> bool:
         return bool(self.config.get("debug", False))
@@ -68,12 +71,19 @@ class MyPlugin(Star):
                 return 0
             payload = parts[1]
             payload += "=" * (-len(payload) % 4)
-            decoded = base64.urlsafe_b64decode(payload.encode("utf-8")).decode(
-                "utf-8"
-            )
+            decoded = base64.urlsafe_b64decode(payload.encode("utf-8")).decode("utf-8")
             data = json.loads(decoded)
             exp = data.get("exp")
-            return int(exp) if isinstance(exp, (int, float)) else 0
+            if isinstance(exp, bool):
+                return 0
+            if isinstance(exp, (int, float)):
+                return int(exp)
+            if isinstance(exp, str):
+                exp_text = exp.strip()
+                if not exp_text:
+                    return 0
+                return int(exp_text)
+            return 0
         except Exception:  # noqa: BLE001
             self._log_debug("Token 非 JWT 或缺少 exp 字段，将依赖 401 触发重登。")
             return 0
@@ -86,11 +96,22 @@ class MyPlugin(Star):
         return int(datetime.now().timestamp()) >= self._token_expire_at - 30
 
     async def initialize(self):
+        await self._get_http_session()
         ok, message = await self._refresh_help_cache()
         if ok:
             self._log(message)
         else:
             logger.warning(f"[helpmenu] {message}")
+
+    async def _get_http_session(self) -> aiohttp.ClientSession:
+        if self._http_session and not self._http_session.closed:
+            return self._http_session
+
+        async with self._http_session_lock:
+            if self._http_session and not self._http_session.closed:
+                return self._http_session
+            self._http_session = aiohttp.ClientSession(trust_env=True)
+            return self._http_session
 
     def _clear_sensitive_config_if_needed(self) -> None:
         if not self._is_auto_clear_enabled():
@@ -134,44 +155,42 @@ class MyPlugin(Star):
         self._log_debug(f"登录用户名: {admin_name}")
 
         timeout = aiohttp.ClientTimeout(total=12)
-        async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
-            async with session.post(login_url, json=payload) as response:
-                data = await response.json(content_type=None)
-                self._log_debug(f"登录状态码: {response.status}")
-                self._log_debug(f"登录响应: {data}")
+        session = await self._get_http_session()
+        async with session.post(login_url, json=payload, timeout=timeout) as response:
+            data = await response.json(content_type=None)
+            self._log_debug(f"登录状态码: {response.status}")
+            self._log_debug(f"登录响应: {data}")
 
-                if not isinstance(data, dict):
-                    raise ValueError(
-                        f"登录接口返回格式异常: {type(data).__name__}",
-                    )
+            if not isinstance(data, dict):
+                raise ValueError(
+                    f"登录接口返回格式异常: {type(data).__name__}",
+                )
 
-                status = str(data.get("status") or "").lower()
-                message = str(data.get("message") or "").strip()
-                if status != "ok":
-                    if "用户名或密码错误" in message:
-                        raise ValueError("后台用户名或密码错误，请检查插件配置。")
-                    raise ValueError(f"登录失败: {message or '未知错误'}")
+            status = str(data.get("status") or "").lower()
+            message = str(data.get("message") or "").strip()
+            if status != "ok":
+                if "用户名或密码错误" in message:
+                    raise ValueError("后台用户名或密码错误，请检查插件配置。")
+                raise ValueError(f"登录失败: {message or '未知错误'}")
 
-                data_node = data.get("data")
-                if not isinstance(data_node, dict):
-                    raise ValueError(
-                        f"登录响应中的 data 字段异常: {data_node}",
-                    )
+            data_node = data.get("data")
+            if not isinstance(data_node, dict):
+                raise ValueError(
+                    f"登录响应中的 data 字段异常: {data_node}",
+                )
 
-                token = str(data_node.get("token") or "").strip()
-                if not token:
-                    raise ValueError(
-                        "登录成功但未获取到 token。",
-                    )
-                self._auth_token = token
-                self._token_expire_at = self._decode_token_expire_at(token)
-                if self._token_expire_at > 0:
-                    self._log_debug(
-                        f"登录成功，Token 过期时间戳: {self._token_expire_at}"
-                    )
-                else:
-                    self._log_debug("登录成功，未解析到 Token 过期时间。")
-                return token
+            token = str(data_node.get("token") or "").strip()
+            if not token:
+                raise ValueError(
+                    "登录成功但未获取到 token。",
+                )
+            self._auth_token = token
+            self._token_expire_at = self._decode_token_expire_at(token)
+            if self._token_expire_at > 0:
+                self._log_debug(f"登录成功，Token 过期时间戳: {self._token_expire_at}")
+            else:
+                self._log_debug("登录成功，未解析到 Token 过期时间。")
+            return token
 
     async def _fetch_command_items(self, token: str) -> list[dict]:
         base_url = self._get_base_url()
@@ -179,36 +198,37 @@ class MyPlugin(Star):
         headers = {"Authorization": f"Bearer {token}"}
         timeout = aiohttp.ClientTimeout(total=18)
         self._log_debug(f"命令列表地址: {commands_url}")
+        session = await self._get_http_session()
+        async with session.get(
+            commands_url, headers=headers, timeout=timeout
+        ) as response:
+            if response.status == 401:
+                raise PermissionError("token_unauthorized")
+            data = await response.json(content_type=None)
+            self._log_debug(f"命令列表状态码: {response.status}")
+            if not isinstance(data, dict):
+                raise ValueError(
+                    f"命令接口返回格式异常: {type(data).__name__}",
+                )
 
-        async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
-            async with session.get(commands_url, headers=headers) as response:
-                if response.status == 401:
-                    raise PermissionError("token_unauthorized")
-                data = await response.json(content_type=None)
-                self._log_debug(f"命令列表状态码: {response.status}")
-                if not isinstance(data, dict):
-                    raise ValueError(
-                        f"命令接口返回格式异常: {type(data).__name__}",
-                    )
+            status = str(data.get("status") or "").lower()
+            message = str(data.get("message") or "").strip()
+            if status != "ok":
+                raise ValueError(f"获取命令列表失败: {message or '未知错误'}")
 
-                status = str(data.get("status") or "").lower()
-                message = str(data.get("message") or "").strip()
-                if status != "ok":
-                    raise ValueError(f"获取命令列表失败: {message or '未知错误'}")
+            data_node = data.get("data")
+            if not isinstance(data_node, dict):
+                raise ValueError(
+                    f"命令接口中的 data 字段异常: {data_node}",
+                )
 
-                data_node = data.get("data")
-                if not isinstance(data_node, dict):
-                    raise ValueError(
-                        f"命令接口中的 data 字段异常: {data_node}",
-                    )
-
-                items = data_node.get("items", [])
-                if not isinstance(items, list):
-                    raise ValueError(
-                        f"命令接口中的 items 字段异常: {type(items).__name__}",
-                    )
-                self._log_debug(f"命令总数(原始): {len(items)}")
-                return items
+            items = data_node.get("items", [])
+            if not isinstance(items, list):
+                raise ValueError(
+                    f"命令接口中的 items 字段异常: {type(items).__name__}",
+                )
+            self._log_debug(f"命令总数(原始): {len(items)}")
+            return items
 
     async def _get_or_refresh_token(self, force_login: bool = False) -> str:
         if not force_login and not self._is_token_expired():
@@ -332,16 +352,29 @@ class MyPlugin(Star):
                 self._total_items = len(parsed_items)
                 self._last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 self._help_pages = self._build_pages(parsed_items)
-                self._session_page.clear()
+                async with self._session_page_lock:
+                    self._session_page.clear()
                 self._clear_sensitive_config_if_needed()
                 return (
                     True,
                     f"帮助菜单刷新成功，共 {self._total_items} 条可用命令。",
                 )
+            except asyncio.TimeoutError:
+                return False, "帮助菜单刷新失败：请求服务器超时，请稍后重试。"
+            except aiohttp.ClientConnectionError as exc:
+                return False, f"帮助菜单刷新失败：无法连接服务器（{exc}）。"
+            except aiohttp.ClientError as exc:
+                return False, f"帮助菜单刷新失败：网络请求异常（{exc}）。"
+            except json.JSONDecodeError as exc:
+                return False, f"帮助菜单刷新失败：服务器返回了无效 JSON（{exc.msg}）。"
+            except PermissionError:
+                return False, "帮助菜单刷新失败：登录状态失效，请检查账号配置后重试。"
+            except ValueError as exc:
+                return False, f"帮助菜单刷新失败：{exc}"
             except Exception as exc:  # noqa: BLE001
                 if self._is_debug_enabled():
                     logger.exception("[helpmenu] Debug 模式下刷新失败。")
-                return False, f"帮助菜单刷新失败：{exc}"
+                return False, f"帮助菜单刷新失败：未知错误（{exc}）。"
 
     def _parse_help_arg(self, message: str) -> str:
         normalized = re.sub(r"\s+", " ", (message or "").strip())
@@ -391,6 +424,14 @@ class MyPlugin(Star):
 
         return 1, f"页码参数无效: {arg}，已显示第 1 页。\n\n"
 
+    async def _resolve_and_set_session_page(
+        self, arg: str, session_id: str
+    ) -> tuple[int, str]:
+        async with self._session_page_lock:
+            page, warning = self._resolve_page(arg, session_id)
+            self._set_session_page(session_id, page)
+            return page, warning
+
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("updateHelpMenu")
     async def update_helpmenu(self, event: AstrMessageEvent):
@@ -414,15 +455,20 @@ class MyPlugin(Star):
                 )
                 return
 
+        session_id = event.get_session_id()
         arg = self._parse_help_arg(event.message_str)
-        page, warning = self._resolve_page(arg, event.get_session_id())
-        self._set_session_page(event.get_session_id(), page)
+        page, warning = await self._resolve_and_set_session_page(arg, session_id)
         text = self._help_pages[page - 1]
         if warning:
             text = f"{warning}{text}"
         yield event.plain_result(text)
 
     async def terminate(self):
-        self._session_page.clear()
+        async with self._http_session_lock:
+            if self._http_session and not self._http_session.closed:
+                await self._http_session.close()
+            self._http_session = None
+        async with self._session_page_lock:
+            self._session_page.clear()
         self._auth_token = ""
         self._token_expire_at = 0
