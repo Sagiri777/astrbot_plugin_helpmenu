@@ -22,9 +22,17 @@ class CommandDocItem:
     aliases: list[str]
 
 
+@dataclass(slots=True, frozen=True)
+class HelpCacheSnapshot:
+    pages: tuple[str, ...]
+    total_items: int
+    last_update: str
+
+
 @register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "0.1.0")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
+    _MAX_SESSION_KEY_LEN = 128
     _EXCLUDED_PLUGINS = {"builtin_commands"}
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -33,9 +41,7 @@ class MyPlugin(Star):
         self._refresh_lock = asyncio.Lock()
         self._session_page_lock = asyncio.Lock()
         self._http_session_lock = asyncio.Lock()
-        self._help_pages: list[str] = []
-        self._total_items = 0
-        self._last_update = "从未"
+        self._help_cache = HelpCacheSnapshot(pages=tuple(), total_items=0, last_update="从未")
         self._session_page: OrderedDict[str, int] = OrderedDict()
         self._auth_token: str = ""
         self._token_expire_at: int = 0
@@ -118,10 +124,13 @@ class MyPlugin(Star):
             self._log_debug("未启用运行后自动清空配置，跳过账号密码清空。")
             return
 
-        self.config["admin_name"] = ""
-        self.config["admin_password"] = ""
-        self.config.save_config()
-        self._log("刷新成功，已清空配置中的 admin_name/admin_password。")
+        try:
+            self.config["admin_name"] = ""
+            self.config["admin_password"] = ""
+            self.config.save_config()
+            self._log("刷新成功，已清空配置中的 admin_name/admin_password。")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"[helpmenu] 清空敏感配置失败：{exc}")
 
     def _build_login_password(self, raw_password: str) -> str:
         if re.fullmatch(r"[0-9a-fA-F]{32}", raw_password):
@@ -273,11 +282,15 @@ class MyPlugin(Star):
                             item.get("plugin_display_name"), ""
                         ) or clean_text(item.get("plugin"), "未知插件")
                         description = clean_text(item.get("description"), "暂无说明。")
-                        aliases = [
-                            clean_text(alias, "")
-                            for alias in item.get("aliases", [])
-                            if clean_text(alias, "")
-                        ]
+                        raw_aliases = item.get("aliases", [])
+                        aliases: list[str] = []
+                        if isinstance(raw_aliases, list):
+                            for alias in raw_aliases:
+                                if not isinstance(alias, str):
+                                    continue
+                                alias_text = clean_text(alias, "")
+                                if alias_text:
+                                    aliases.append(alias_text)
                         dedup_key = f"{plugin_name}|{command}"
                         if dedup_key not in dedup:
                             dedup.add(dedup_key)
@@ -299,8 +312,14 @@ class MyPlugin(Star):
         return collected
 
     def _build_pages(
-        self, items: list[CommandDocItem], page_size: int = 12
+        self,
+        items: list[CommandDocItem],
+        total_items: int,
+        last_update: str,
+        page_size: int = 12,
     ) -> list[str]:
+        if page_size <= 0:
+            raise ValueError("page_size must be greater than 0")
         if not items:
             return ["当前暂无可展示命令，请先执行 /updateHelpMenu 刷新。"]
 
@@ -317,8 +336,8 @@ class MyPlugin(Star):
                 "指令帮助菜单",
                 (
                     f"第 {page_index + 1}/{total_pages} 页 | "
-                    f"命令数: {self._total_items} | "
-                    f"文档更新时间: {self._last_update}"
+                    f"命令数: {total_items} | "
+                    f"文档更新时间: {last_update}"
                 ),
                 "用法: /helpMenu <页码|next|prev> | /updateHelpMenu（仅限管理员）",
                 "",
@@ -349,15 +368,20 @@ class MyPlugin(Star):
                 parsed_items = self._extract_allowed_items(raw_items)
                 self._log_debug(f"命令总数(过滤后): {len(parsed_items)}")
 
-                self._total_items = len(parsed_items)
-                self._last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                self._help_pages = self._build_pages(parsed_items)
+                total_items = len(parsed_items)
+                last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                help_pages = self._build_pages(parsed_items, total_items, last_update)
+                self._help_cache = HelpCacheSnapshot(
+                    pages=tuple(help_pages),
+                    total_items=total_items,
+                    last_update=last_update,
+                )
                 async with self._session_page_lock:
                     self._session_page.clear()
                 self._clear_sensitive_config_if_needed()
                 return (
                     True,
-                    f"帮助菜单刷新成功，共 {self._total_items} 条可用命令。",
+                    f"帮助菜单刷新成功，共 {total_items} 条可用命令。",
                 )
             except asyncio.TimeoutError:
                 return False, "帮助菜单刷新失败：请求服务器超时，请稍后重试。"
@@ -384,26 +408,42 @@ class MyPlugin(Star):
         return parts[1].strip().lower()
 
     def _get_session_page(self, session_id: str) -> int:
-        page = self._session_page.get(session_id)
+        session_key = self._normalize_session_key(session_id)
+        page = self._session_page.get(session_key)
         if page is None:
             return 1
-        self._session_page.move_to_end(session_id)
+        self._session_page.move_to_end(session_key)
         return page
 
     def _set_session_page(self, session_id: str, page: int) -> None:
-        self._session_page[session_id] = page
-        self._session_page.move_to_end(session_id)
+        session_key = self._normalize_session_key(session_id)
+        self._session_page[session_key] = page
+        self._session_page.move_to_end(session_key)
         if len(self._session_page) <= self._SESSION_PAGE_CACHE_MAX_SIZE:
             return
 
         evicted_session, _ = self._session_page.popitem(last=False)
+        evicted_session_safe = (
+            f"{evicted_session[:16]}..."
+            if len(evicted_session) > 16
+            else evicted_session
+        )
         self._log_debug(
             f"session page cache exceeded {self._SESSION_PAGE_CACHE_MAX_SIZE}, "
-            f"evicted session: {evicted_session}",
+            f"evicted session: {evicted_session_safe}",
         )
 
+    def _normalize_session_key(self, session_id: str) -> str:
+        session_key = (session_id or "").strip()
+        if not session_key:
+            return "anonymous"
+        if len(session_key) <= self._MAX_SESSION_KEY_LEN:
+            return session_key
+        digest = hashlib.sha256(session_key.encode("utf-8")).hexdigest()
+        return f"sid:{digest}"
+
     def _resolve_page(self, arg: str, session_id: str) -> tuple[int, str]:
-        total_pages = max(1, len(self._help_pages))
+        total_pages = max(1, len(self._help_cache.pages))
         if not arg:
             page = self._get_session_page(session_id)
             return min(max(page, 1), total_pages), ""
@@ -447,7 +487,7 @@ class MyPlugin(Star):
     @filter.command("helpMenu")
     async def helpmenu(self, event: AstrMessageEvent):
         """展示支持翻页的帮助菜单。"""
-        if not self._help_pages:
+        if not self._help_cache.pages:
             ok, message = await self._refresh_help_cache()
             if not ok:
                 yield event.plain_result(
@@ -458,7 +498,8 @@ class MyPlugin(Star):
         session_id = event.get_session_id()
         arg = self._parse_help_arg(event.message_str)
         page, warning = await self._resolve_and_set_session_page(arg, session_id)
-        text = self._help_pages[page - 1]
+        snapshot = self._help_cache
+        text = snapshot.pages[page - 1]
         if warning:
             text = f"{warning}{text}"
         yield event.plain_result(text)
