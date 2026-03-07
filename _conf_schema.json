@@ -12,6 +12,11 @@
     "type": "string",
     "default": "http://127.0.0.1:6185"
   },
+  "auto_clear_config_after_run": {
+    "description": "运行后自动清空配置",
+    "type": "bool",
+    "default": false
+  },
   "debug": {
     "description": "Debug Mode",
     "type": "bool",

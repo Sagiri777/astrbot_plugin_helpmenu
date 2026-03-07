@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import hashlib
+import json
 import re
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
@@ -33,6 +35,10 @@ class MyPlugin(Star):
         self._total_items = 0
         self._last_update = "从未"
         self._session_page: OrderedDict[str, int] = OrderedDict()
+        self._auth_token: str = ""
+        self._token_expire_at: int = 0
+        self._cached_admin_name: str = ""
+        self._cached_admin_password: str = ""
 
     def _is_debug_enabled(self) -> bool:
         return bool(self.config.get("debug", False))
@@ -44,6 +50,41 @@ class MyPlugin(Star):
         if self._is_debug_enabled():
             logger.info(f"[helpmenu][debug] {message}")
 
+    def _is_auto_clear_enabled(self) -> bool:
+        return bool(self.config.get("auto_clear_config_after_run", False))
+
+    def _capture_credentials_from_config(self) -> tuple[str, str]:
+        admin_name = (self.config.get("admin_name") or "").strip()
+        admin_password = (self.config.get("admin_password") or "").strip()
+        if admin_name and admin_password:
+            self._cached_admin_name = admin_name
+            self._cached_admin_password = admin_password
+        return self._cached_admin_name, self._cached_admin_password
+
+    def _decode_token_expire_at(self, token: str) -> int:
+        try:
+            parts = token.split(".")
+            if len(parts) != 3:
+                return 0
+            payload = parts[1]
+            payload += "=" * (-len(payload) % 4)
+            decoded = base64.urlsafe_b64decode(payload.encode("utf-8")).decode(
+                "utf-8"
+            )
+            data = json.loads(decoded)
+            exp = data.get("exp")
+            return int(exp) if isinstance(exp, (int, float)) else 0
+        except Exception:  # noqa: BLE001
+            self._log_debug("Token 非 JWT 或缺少 exp 字段，将依赖 401 触发重登。")
+            return 0
+
+    def _is_token_expired(self) -> bool:
+        if not self._auth_token:
+            return True
+        if self._token_expire_at <= 0:
+            return False
+        return int(datetime.now().timestamp()) >= self._token_expire_at - 30
+
     async def initialize(self):
         ok, message = await self._refresh_help_cache()
         if ok:
@@ -52,8 +93,8 @@ class MyPlugin(Star):
             logger.warning(f"[helpmenu] {message}")
 
     def _clear_sensitive_config_if_needed(self) -> None:
-        if self._is_debug_enabled():
-            self._log_debug("Debug 模式已开启，跳过清空账号密码。")
+        if not self._is_auto_clear_enabled():
+            self._log_debug("未启用运行后自动清空配置，跳过账号密码清空。")
             return
 
         self.config["admin_name"] = ""
@@ -77,8 +118,7 @@ class MyPlugin(Star):
         ).rstrip("/")
 
     async def _login_and_get_token(self) -> str:
-        admin_name = (self.config.get("admin_name") or "").strip()
-        admin_password = (self.config.get("admin_password") or "").strip()
+        admin_name, admin_password = self._capture_credentials_from_config()
         if not admin_name or not admin_password:
             raise ValueError(
                 "插件配置缺少 admin_name 或 admin_password，请先填写。",
@@ -123,6 +163,14 @@ class MyPlugin(Star):
                     raise ValueError(
                         "登录成功但未获取到 token。",
                     )
+                self._auth_token = token
+                self._token_expire_at = self._decode_token_expire_at(token)
+                if self._token_expire_at > 0:
+                    self._log_debug(
+                        f"登录成功，Token 过期时间戳: {self._token_expire_at}"
+                    )
+                else:
+                    self._log_debug("登录成功，未解析到 Token 过期时间。")
                 return token
 
     async def _fetch_command_items(self, token: str) -> list[dict]:
@@ -134,6 +182,8 @@ class MyPlugin(Star):
 
         async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             async with session.get(commands_url, headers=headers) as response:
+                if response.status == 401:
+                    raise PermissionError("token_unauthorized")
                 data = await response.json(content_type=None)
                 self._log_debug(f"命令列表状态码: {response.status}")
                 if not isinstance(data, dict):
@@ -159,6 +209,13 @@ class MyPlugin(Star):
                     )
                 self._log_debug(f"命令总数(原始): {len(items)}")
                 return items
+
+    async def _get_or_refresh_token(self, force_login: bool = False) -> str:
+        if not force_login and not self._is_token_expired():
+            self._log_debug("复用内存中的 Token。")
+            return self._auth_token
+        self._log_debug("Token 不可用或已过期，尝试重新登录。")
+        return await self._login_and_get_token()
 
     def _extract_allowed_items(self, raw_items: list[dict]) -> list[CommandDocItem]:
         collected: list[CommandDocItem] = []
@@ -262,8 +319,13 @@ class MyPlugin(Star):
         async with self._refresh_lock:
             try:
                 self._log("开始刷新帮助菜单缓存...")
-                token = await self._login_and_get_token()
-                raw_items = await self._fetch_command_items(token)
+                token = await self._get_or_refresh_token()
+                try:
+                    raw_items = await self._fetch_command_items(token)
+                except PermissionError:
+                    self._log_debug("命令接口返回 401，尝试用内存凭据重新登录后重试。")
+                    token = await self._get_or_refresh_token(force_login=True)
+                    raw_items = await self._fetch_command_items(token)
                 parsed_items = self._extract_allowed_items(raw_items)
                 self._log_debug(f"命令总数(过滤后): {len(parsed_items)}")
 
@@ -362,3 +424,5 @@ class MyPlugin(Star):
 
     async def terminate(self):
         self._session_page.clear()
+        self._auth_token = ""
+        self._token_expire_at = 0
