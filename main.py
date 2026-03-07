@@ -147,6 +147,26 @@ class MyPlugin(Star):
             or "http://127.0.0.1:6185"
         ).rstrip("/")
 
+    def _build_safe_login_response_log(self, data: object) -> str:
+        if not isinstance(data, dict):
+            return f"响应类型: {type(data).__name__}"
+
+        status = str(data.get("status") or "").strip()
+        message = str(data.get("message") or "").strip()
+        data_node = data.get("data")
+        data_node_type = type(data_node).__name__
+        data_node_keys: list[str] = []
+        if isinstance(data_node, dict):
+            data_node_keys = sorted(data_node.keys())
+
+        safe_payload = {
+            "status": status,
+            "message": message,
+            "data_type": data_node_type,
+            "data_keys": data_node_keys,
+        }
+        return json.dumps(safe_payload, ensure_ascii=False)
+
     async def _login_and_get_token(self) -> str:
         admin_name, admin_password = self._capture_credentials_from_config()
         if not admin_name or not admin_password:
@@ -168,7 +188,9 @@ class MyPlugin(Star):
         async with session.post(login_url, json=payload, timeout=timeout) as response:
             data = await response.json(content_type=None)
             self._log_debug(f"登录状态码: {response.status}")
-            self._log_debug(f"登录响应: {data}")
+            self._log_debug(
+                f"登录响应(脱敏): {self._build_safe_login_response_log(data)}"
+            )
 
             if not isinstance(data, dict):
                 raise ValueError(
