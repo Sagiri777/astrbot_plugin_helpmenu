@@ -299,9 +299,6 @@ class MyPlugin(Star):
             logger.warning(f"[helpmenu] 清空敏感配置失败：{exc}")
 
     def _build_login_password(self, raw_password: str) -> str:
-        if re.fullmatch(r"[0-9a-fA-F]{32}", raw_password):
-            self._log_debug("检测到配置密码已是 32 位 MD5，直接用于登录。")
-            return raw_password.lower()
         md5_password = hashlib.md5(raw_password.encode("utf-8")).hexdigest()  # noqa: S324
         self._log_debug("已将配置密码转换为 MD5 后提交登录。")
         return md5_password
@@ -347,7 +344,6 @@ class MyPlugin(Star):
             "password": self._build_login_password(admin_password),
         }
         self._log_debug(f"登录地址: {login_url}")
-        self._log_debug(f"登录用户名: {admin_name}")
 
         timeout = aiohttp.ClientTimeout(total=12)
         session = await self._get_http_session()
@@ -523,6 +519,14 @@ class MyPlugin(Star):
         if not all_stars_metadata:
             return collected
 
+        handlers_by_module: defaultdict[str, list] = defaultdict(list)
+        for handler in star_handlers_registry:
+            module_path = getattr(handler, "handler_module_path", None)
+            event_filters = getattr(handler, "event_filters", None)
+            if not isinstance(module_path, str) or not isinstance(event_filters, list):
+                continue
+            handlers_by_module[module_path].append(handler)
+
         for star in all_stars_metadata:
             plugin_id = str(getattr(star, "name", "") or "").strip()
             module_path = str(getattr(star, "module_path", "") or "").strip()
@@ -535,15 +539,18 @@ class MyPlugin(Star):
                 or "未知插件"
             )
 
-            for handler in star_handlers_registry:
-                if handler.handler_module_path != module_path:
+            for handler in handlers_by_module.get(module_path, []):
+                handler_desc = getattr(handler, "desc", "")
+                event_filters = getattr(handler, "event_filters", [])
+                if not isinstance(event_filters, list):
                     continue
 
                 description = (
-                    re.sub(r"\s+", " ", (handler.desc or "").strip()) or "暂无说明。"
+                    re.sub(r"\s+", " ", str(handler_desc or "").strip())
+                    or "暂无说明。"
                 )
                 permission = "everyone"
-                for event_filter in handler.event_filters:
+                for event_filter in event_filters:
                     if not isinstance(event_filter, PermissionTypeFilter):
                         continue
                     if event_filter.permission_type == PermissionType.ADMIN:
@@ -555,7 +562,7 @@ class MyPlugin(Star):
                 if not self._can_show_command(permission, include_admin_commands):
                     continue
 
-                for event_filter in handler.event_filters:
+                for event_filter in event_filters:
                     command = ""
                     aliases: list[str] = []
 
@@ -840,14 +847,14 @@ class MyPlugin(Star):
             return page, warning
 
     @filter.on_plugin_loaded()
-    async def on_plugin_loaded(self, metadata):
+    async def on_plugin_loaded(self, event, metadata):
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "加载",
         )
 
     @filter.on_plugin_unloaded()
-    async def on_plugin_unloaded(self, metadata):
+    async def on_plugin_unloaded(self, event, metadata):
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "卸载",
