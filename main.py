@@ -269,7 +269,7 @@ class MyPlugin(Star):
     async def initialize(self):
         if self._get_fetch_mode() == self._MODE_API:
             await self._get_http_session()
-        ok, message = await self._refresh_help_cache()
+        ok, message = await self._refresh_help_cache(force=True)
         if ok:
             self._log(message)
         else:
@@ -658,9 +658,13 @@ class MyPlugin(Star):
                 return self._help_cache_admin_private
         return self._help_cache
 
-    async def _refresh_help_cache(self) -> tuple[bool, str]:
+    async def _refresh_help_cache(self, force: bool = False) -> tuple[bool, str]:
         async with self._refresh_lock:
             try:
+                if not force and self._help_cache.pages:
+                    self._log_debug("帮助菜单缓存已就绪，跳过重复刷新。")
+                    return True, "帮助菜单缓存已就绪，已跳过重复刷新。"
+
                 mode = self._get_fetch_mode()
                 self._log(f"开始刷新帮助菜单缓存（{self._mode_display_name(mode)}）...")
 
@@ -764,7 +768,7 @@ class MyPlugin(Star):
             )
             return
 
-        ok, message = await self._refresh_help_cache()
+        ok, message = await self._refresh_help_cache(force=True)
         if ok:
             self._log(f"检测到插件{action}：{plugin_name}，已自动刷新帮助文档。")
             return
@@ -864,7 +868,7 @@ class MyPlugin(Star):
     @filter.command("updateHelpMenu")
     async def update_helpmenu(self, event: AstrMessageEvent):
         """刷新已生成的帮助菜单文档。"""
-        ok, message = await self._refresh_help_cache()
+        ok, message = await self._refresh_help_cache(force=True)
         if ok:
             yield event.plain_result(message)
             return
