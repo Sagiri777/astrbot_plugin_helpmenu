@@ -1,77 +1,71 @@
 # astrbot_plugin_helpmenu
 
-为 AstrBot 自动生成文字帮助菜单。
+为 AstrBot 自动生成可翻页的帮助菜单，支持文本输出与图片输出。
 
-插件会登录 AstrBot Dashboard，拉取 `/api/commands`，筛选可用命令并生成帮助文档，用户可通过 `helpMenu` 翻页查看。
+## 功能概览
 
-初次使用需先在插件配置页面中填写用户名与密码
-
-## 功能特性
-
-- 加载刷新插件时自动拉取并生成帮助文档
-- 支持手动刷新：`/updateHelpMenu`（一般用不上）
-- 支持分页查看：`/helpMenu`、`/helpMenu {pageNum}`、`/helpMenu next`、`/helpMenu prev`
-- 按插件分组展示命令，包含：
-  - `effective_command`
-  - `description`
-  - `aliases`（若存在）
-- 自动过滤不可用命令：
-  - 仅保留 `type` 为 `command` 或 `sub_command`
-  - 跳过 `enabled = false`
-  - 跳过 `permission != everyone`
+- 支持两种文档获取模式：
+  - `metadata`（默认）：从本地插件元数据和处理器注册表生成命令文档，不依赖 Dashboard 登录。
+  - `api`：通过 Dashboard 的 `/api/commands` 接口拉取命令文档。
+- 支持两种输出模式：
+  - `text`：文本分页输出。
+  - `image`：通过 HTML 模板渲染帮助菜单图片。
+- 支持图片模板：`classic`、`frost`、`compact`。
+- 支持会话分页浏览：`/helpMenu`、`/helpMenu <页码>`、`/helpMenu next`、`/helpMenu prev`。
+- 支持管理员刷新：`/updateHelpMenu`。
+- 插件加载/卸载事件发生时会自动刷新帮助菜单缓存。
+- 普通会话仅展示公开命令；管理员私聊会额外展示管理员命令。
 
 ## 配置项
 
-在插件配置中填写：
-
-- `admin_name`：AstrBot Dashboard 登录用户名
-- `admin_password`：AstrBot Dashboard 登录密码
-- `ASTRHost`：ASTR 后台地址（默认：`http://127.0.0.1:6185`）
-- `auto_clear_config_after_run`：运行后自动清空配置（默认：`false`）
-
-> 未配置 `ASTRHost` 时，默认请求地址为 `http://127.0.0.1:6185`。
+- `fetch_mode`：命令文档获取模式，`metadata` 或 `api`，默认 `metadata`。
+- `output_mode`：帮助菜单输出模式，`text` 或 `image`，默认 `text`。
+- `image_template`：图片模板风格，`classic` / `frost` / `compact`，默认 `classic`。
+- `image_render_options`：图片渲染参数（可选），透传 `html_render` 的 `options`。
+- `admin_name`：Dashboard 登录用户名（仅 `api` 模式需要）。
+- `admin_password`：Dashboard 登录密码（仅 `api` 模式需要）。
+- `ASTRHost`：Dashboard 地址，默认 `http://127.0.0.1:6185`（仅 `api` 模式需要）。
+- `auto_clear_config_after_run`：刷新成功后自动清空配置中的账号密码，默认 `false`。
 
 ## 指令说明
 
 - `/helpMenu`
-  - 显示当前会话最近查看页（首次默认第 1 页）
+  - 显示当前会话最近查看页（首次默认第 1 页）。
 - `/helpMenu <页码>`
-  - 跳转到指定页，如 `/helpMenu 3`
+  - 跳转到指定页，例如 `/helpMenu 3`。
 - `/helpMenu next`
-  - 下一页
+  - 查看下一页。
 - `/helpMenu prev`
-  - 上一页
+  - 查看上一页。
 - `/updateHelpMenu`
-  - 按需复用内存 Token 并拉取最新命令，重建帮助文档
+  - 立即刷新帮助菜单缓存（仅管理员）。
 
-## 使用建议
+## 行为说明
 
-- 新装/卸载插件、修改命令权限后，执行一次 `/updateHelpMenu`
-- 若提示登录失败，请检查 `admin_name`、`admin_password` 是否正确
-- 若 Dashboard 不在本机默认端口，请将 `ASTRHost` 改为你的实际地址
+- 文档头部会显示：
+  - 当前页与总页数
+  - 命令总数
+  - 数据来源（元数据模式/API 模式）
+  - 文档更新时间
+- `api` 模式下若未配置可用账号密码，刷新会被跳过并给出提示。
+- 图片渲染失败时会自动回退到文本输出。
 
 ## 兼容与限制
 
-- 帮助文档为纯文本消息，仅测试了aiocqhttp平台
-- 文档内容来自 Dashboard 的命令接口返回结果
+- 命令展示依赖 AstrBot 的插件元数据、事件过滤器与命令注册信息。
+- `api` 模式依赖 Dashboard 可访问且鉴权成功。
+- 图片输出依赖运行环境支持 `html_render`。
 
-# 免责声明
-本插件会登录 ASTRBot 的 Dashboard，本插件仅会使用您的账号和密码进行登录并获取命令信息。Token 与凭据仅保存在内存中用于会话内自动续登；若启用 `auto_clear_config_after_run`，刷新成功后会清空配置中的账号密码。将账号和密码填写进插件配置视为您已阅读本文档并同意本插件使用您的相关信息且不会要求本插件作者承担因此造成的问题的任何责任。
+## 免责声明
 
-请注意账号安全，勿将此插件用于非个人用途
+当使用 `api` 模式时，插件会使用您配置的 Dashboard 账号密码登录并拉取命令信息。Token 与凭据仅保存在运行内存中用于会话内续登；若启用 `auto_clear_config_after_run`，刷新成功后会清空配置中的账号密码。
 
-## 安全说明
-- 本插件仅在运行时临时使用您的管理员凭据进行API调用，并在内存中维护登录状态
-- 所有网络通信均通过HTTPS/TLS加密传输(如适用)
-- 插件不会记录、存储或传输您的认证凭据到任何第三方服务
-- 请确保您的AstrBot Dashboard部署在安全的网络环境中
+请妥善保管账号信息，确保 Dashboard 部署在可信网络环境中。
 
-## 用户责任
-- 用户需确保自己拥有Dashboard账户的合法访问权限
-- 用户应定期更换密码以保障安全性
-- 如无需再使用本插件的Debug模式，请及时关闭Debug模式并确保个人信息已被移除
+## 参考
 
-## 数据处理
-- 插件仅获取命令列表信息，不涉及敏感聊天记录或其他用户数据
-- 所有获取的信息仅用于本地构建帮助菜单，不会上传至其他服务器
-- 可通过 `auto_clear_config_after_run` 控制是否在刷新成功后自动清空配置
+本项目借鉴、引用了以下项目中的部分代码：
+
+- [AstrBot](https://github.com/AstrBot/AstrBot)
+- [astrbot 帮助插件](https://github.com/tinkerbellqwq/astrbot_plugin_help)
+- [插件变更提醒](https://github.com/PyuraMazo/astrbot_plugin_alteration_notifier)

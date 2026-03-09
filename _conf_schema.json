@@ -1,4 +1,40 @@
 {
+  "fetch_mode": {
+    "description": "命令文档获取模式",
+    "type": "string",
+    "options": [
+      "metadata",
+      "api"
+    ],
+    "hint": "metadata: 通过本地插件元数据生成；api: 通过 Dashboard API 获取。",
+    "default": "metadata"
+  },
+  "output_mode": {
+    "description": "帮助菜单输出模式",
+    "type": "string",
+    "options": [
+      "text",
+      "image"
+    ],
+    "hint": "text: 文本分页输出；image: 使用 HTML 模板渲染图片输出。",
+    "default": "text"
+  },
+  "image_template": {
+    "description": "图片模板风格",
+    "type": "string",
+    "options": [
+      "classic",
+      "frost",
+      "compact"
+    ],
+    "hint": "仅当 output_mode=image 时生效；若填写非法值会自动回退为 classic。",
+    "default": "classic"
+  },
+  "image_render_options": {
+    "description": "图片渲染选项(可选)",
+    "type": "dict",
+    "hint": "透传 html_render options，例如 type/full_page/scale/quality/timeout。"
+  },
   "admin_name": {
     "description": "登录ASTR后台的用户名",
     "type": "string"
