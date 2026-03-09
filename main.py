@@ -36,6 +36,19 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
+class HelpMenuError(Exception):
+    def __init__(self, stage: str, message: str):
+        super().__init__(message)
+        self.stage = stage
+        self.message = message
+
+
+class HttpStatusError(HelpMenuError):
+    def __init__(self, stage: str, status: int, detail: str):
+        super().__init__(stage, f"HTTP {status}: {detail}")
+        self.status = status
+
+
 @register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "0.1.0")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
@@ -130,6 +143,8 @@ class MyPlugin(Star):
         self._cached_admin_name: str = ""
         self._cached_admin_password: str = ""
         self._http_session: aiohttp.ClientSession | None = None
+        self._plugin_change_pending = False
+        self._plugin_refresh_task: asyncio.Task | None = None
 
     def _is_debug_enabled(self) -> bool:
         return bool(self.config.get("debug", False))
@@ -282,7 +297,7 @@ class MyPlugin(Star):
         async with self._http_session_lock:
             if self._http_session and not self._http_session.closed:
                 return self._http_session
-            self._http_session = aiohttp.ClientSession(trust_env=True)
+            self._http_session = aiohttp.ClientSession(trust_env=False)
             return self._http_session
 
     def _clear_sensitive_config_if_needed(self) -> None:
@@ -330,6 +345,24 @@ class MyPlugin(Star):
         }
         return json.dumps(safe_payload, ensure_ascii=False)
 
+    async def _read_json_response(self, response: aiohttp.ClientResponse, stage: str) -> object:
+        try:
+            return await response.json(content_type=None)
+        except json.JSONDecodeError as exc:
+            body_preview = (await response.text()).strip().replace("\n", " ")[:200]
+            raise ValueError(
+                f"{stage}返回了无效 JSON（HTTP {response.status}，响应片段: {body_preview or '空'}）"
+            ) from exc
+
+    def _raise_for_http_status(self, response: aiohttp.ClientResponse, stage: str) -> None:
+        if 200 <= response.status < 300:
+            return
+        if stage == "登录" and response.status in {401, 403}:
+            raise PermissionError("login_unauthorized")
+        if stage == "命令列表" and response.status == 401:
+            raise PermissionError("token_unauthorized")
+        raise HttpStatusError(stage, response.status, "服务返回非 2xx 状态")
+
     async def _login_and_get_token(self) -> str:
         admin_name, admin_password = self._capture_credentials_from_config()
         if not admin_name or not admin_password:
@@ -348,8 +381,9 @@ class MyPlugin(Star):
         timeout = aiohttp.ClientTimeout(total=12)
         session = await self._get_http_session()
         async with session.post(login_url, json=payload, timeout=timeout) as response:
-            data = await response.json(content_type=None)
             self._log_debug(f"登录状态码: {response.status}")
+            self._raise_for_http_status(response, "登录")
+            data = await self._read_json_response(response, "登录接口")
             self._log_debug(
                 f"登录响应(脱敏): {self._build_safe_login_response_log(data)}"
             )
@@ -395,10 +429,9 @@ class MyPlugin(Star):
         async with session.get(
             commands_url, headers=headers, timeout=timeout
         ) as response:
-            if response.status == 401:
-                raise PermissionError("token_unauthorized")
-            data = await response.json(content_type=None)
             self._log_debug(f"命令列表状态码: {response.status}")
+            self._raise_for_http_status(response, "命令列表")
+            data = await self._read_json_response(response, "命令接口")
             if not isinstance(data, dict):
                 raise ValueError(
                     f"命令接口返回格式异常: {type(data).__name__}",
@@ -737,21 +770,38 @@ class MyPlugin(Star):
                     ),
                 )
             except asyncio.TimeoutError:
+                self._log_debug("刷新失败阶段: network_timeout")
                 return False, "帮助菜单刷新失败：请求服务器超时，请稍后重试。"
             except aiohttp.ClientConnectionError as exc:
+                self._log_debug(f"刷新失败阶段: connect ({exc})")
                 return False, f"帮助菜单刷新失败：无法连接服务器（{exc}）。"
+            except HttpStatusError as exc:
+                self._log_debug(f"刷新失败阶段: {exc.stage} status={exc.status}")
+                return False, f"帮助菜单刷新失败：{exc.stage}接口异常（HTTP {exc.status}）。"
             except aiohttp.ClientError as exc:
+                self._log_debug(f"刷新失败阶段: client_error ({exc})")
                 return False, f"帮助菜单刷新失败：网络请求异常（{exc}）。"
-            except json.JSONDecodeError as exc:
-                return False, f"帮助菜单刷新失败：服务器返回了无效 JSON（{exc.msg}）。"
-            except PermissionError:
+            except PermissionError as exc:
+                self._log_debug(f"刷新失败阶段: permission ({exc})")
                 return False, "帮助菜单刷新失败：登录状态失效，请检查账号配置后重试。"
             except ValueError as exc:
+                self._log_debug(f"刷新失败阶段: value_error ({exc})")
                 return False, f"帮助菜单刷新失败：{exc}"
             except Exception as exc:  # noqa: BLE001
-                if self._is_debug_enabled():
-                    logger.exception("[helpmenu] Debug 模式下刷新失败。")
+                logger.exception("[helpmenu] 刷新失败（未知异常）。")
                 return False, f"帮助菜单刷新失败：未知错误（{exc}）。"
+
+    async def _run_debounced_auto_refresh(self) -> None:
+        await asyncio.sleep(1.0)
+        if not self._plugin_change_pending:
+            return
+        self._plugin_change_pending = False
+
+        ok, message = await self._refresh_help_cache(force=False)
+        if ok:
+            self._log("检测到插件变更，已合并触发一次自动刷新帮助文档。")
+            return
+        logger.warning(f"[helpmenu] 检测到插件变更，自动刷新帮助文档失败：{message}")
 
     async def _auto_refresh_for_plugin_change(
         self, plugin_name: str, action: str
@@ -768,13 +818,13 @@ class MyPlugin(Star):
             )
             return
 
-        ok, message = await self._refresh_help_cache(force=True)
-        if ok:
-            self._log(f"检测到插件{action}：{plugin_name}，已自动刷新帮助文档。")
+        self._plugin_change_pending = True
+        if self._plugin_refresh_task and not self._plugin_refresh_task.done():
+            self._log_debug(f"检测到插件{action}：{plugin_name}，已并入待执行刷新批次。")
             return
-        logger.warning(
-            f"[helpmenu] 检测到插件{action}：{plugin_name}，自动刷新帮助文档失败：{message}"
-        )
+
+        self._log_debug(f"检测到插件{action}：{plugin_name}，将在短暂去抖后自动刷新。")
+        self._plugin_refresh_task = asyncio.create_task(self._run_debounced_auto_refresh())
 
     def _parse_help_arg(self, message: str) -> str:
         normalized = re.sub(r"\s+", " ", (message or "").strip())
@@ -918,6 +968,14 @@ class MyPlugin(Star):
         yield event.plain_result(text)
 
     async def terminate(self):
+        if self._plugin_refresh_task and not self._plugin_refresh_task.done():
+            self._plugin_refresh_task.cancel()
+            try:
+                await self._plugin_refresh_task
+            except asyncio.CancelledError:
+                pass
+        self._plugin_refresh_task = None
+        self._plugin_change_pending = False
         async with self._http_session_lock:
             if self._http_session and not self._http_session.closed:
                 await self._http_session.close()
