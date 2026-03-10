@@ -67,18 +67,40 @@ class MyPlugin(Star):
     }
     _HELP_MENU_IMAGE_TEMPLATES = {
         "classic": """
-<div style="background:#f3f6fb;padding:24px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:980px;margin:0 auto;background:#ffffff;border:1px solid #dde3ec;border-radius:18px;padding:22px 24px;">
-    <div style="font-size:30px;font-weight:700;color:#1f2a37;line-height:1.2;">{{ title }}</div>
-    <div style="font-size:16px;color:#4b5563;margin-top:8px;">{{ subtitle }}</div>
+<div style="background:#eef3fb;padding:22px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="max-width:900px;min-height:1200px;margin:0 auto;background:#ffffff;border:1px solid #d7e1ef;border-radius:18px;padding:20px;box-sizing:border-box;">
+    <div style="font-size:15px;color:#4b5563;line-height:1.5;">{{ subtitle }}</div>
     {% if warning %}
-    <div style="margin-top:14px;padding:10px 12px;border:1px solid #f1c988;background:#fff7e8;border-radius:10px;font-size:15px;color:#7c5800;">
+    <div style="margin-top:10px;padding:10px 12px;border:1px solid #f1c988;background:#fff7e8;border-radius:10px;font-size:14px;color:#7c5800;">
       {{ warning }}
     </div>
     {% endif %}
-    <div style="margin-top:14px;border-top:1px dashed #d7deea;padding-top:12px;">
-      {% for line in lines %}
-      <div style="font-size:18px;color:#1f2a37;line-height:1.72;white-space:pre-wrap;">{{ line }}</div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-items:start;">
+      {% for card in cards %}
+      <div style="border:1px solid #d8e3f1;border-radius:12px;background:#f9fbff;padding:12px;">
+        <div style="font-size:18px;color:#1d2d44;font-weight:700;">{{ card.plugin }}</div>
+        {% if card.continued %}
+        <div style="font-size:12px;color:#5c6e86;margin-top:2px;">本页续接</div>
+        {% endif %}
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+          {% for command in card.commands %}
+          <div style="border:1px solid #dce6f4;border-radius:8px;background:#ffffff;padding:8px;">
+            <div style="font-size:15px;color:#16273f;font-weight:600;line-height:1.5;">/{{ command.name }}</div>
+            <div style="margin-top:4px;font-size:13px;color:#2f3f55;line-height:1.5;">{{ command.description }}</div>
+            {% if command.args %}
+            <div style="margin-top:6px;padding:6px;border-radius:6px;background:#f1f6ff;border:1px solid #d7e6ff;">
+              {% for arg in command.args %}
+              <div style="font-size:12px;color:#19406f;line-height:1.45;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if command.aliases %}
+            <div style="margin-top:4px;font-size:12px;color:#4b607b;line-height:1.4;">别名: {{ command.aliases }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
       {% endfor %}
     </div>
   </div>
@@ -226,22 +248,84 @@ class MyPlugin(Star):
         total_pages: int,
         snapshot: HelpCacheSnapshot,
     ) -> str:
-        lines = [line for line in page_text.split("\n") if line.strip()]
+        cards = self._parse_cards_from_page_text(page_text)
         data = {
-            "title": "指令帮助菜单",
             "subtitle": (
                 f"第 {page}/{total_pages} 页 | 命令数: {snapshot.total_items} | "
                 f"来源: {self._mode_display_name(snapshot.source_mode)} | "
                 f"文档更新时间: {snapshot.last_update}"
             ),
             "warning": warning.strip(),
-            "lines": lines,
+            "cards": cards,
         }
         return await self.html_render(
             self._get_image_template(),
             data,
             options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
         )
+
+    def _extract_arg_lines(self, description: str) -> tuple[str, list[dict[str, str]]]:
+        matches = list(
+            re.finditer(
+                r"(Arg[\w\-\u4e00-\u9fa5]*)\s*[:：]\s*([^,，;；。]+)",
+                description,
+                flags=re.IGNORECASE,
+            )
+        )
+        args: list[dict[str, str]] = []
+        for match in matches:
+            args.append(
+                {
+                    "name": match.group(1).strip(),
+                    "detail": match.group(2).strip(),
+                }
+            )
+        cleaned = re.sub(
+            r"(Arg[\w\-\u4e00-\u9fa5]*)\s*[:：]\s*([^,，;；。]+)",
+            "",
+            description,
+            flags=re.IGNORECASE,
+        )
+        cleaned = re.sub(r"[，,;；]+", "，", cleaned).strip("，,;；。 ")
+        return (cleaned or description), args
+
+    def _parse_cards_from_page_text(self, page_text: str) -> list[dict[str, object]]:
+        cards: list[dict[str, object]] = []
+        current_card: dict[str, object] | None = None
+        current_command: dict[str, object] | None = None
+        for raw_line in page_text.split("\n"):
+            line = raw_line.rstrip()
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("指令帮助菜单") or stripped.startswith("第 ") or stripped.startswith("用法:"):
+                continue
+            if stripped.startswith("[") and stripped.endswith("]"):
+                plugin_label = stripped[1:-1]
+                continued = plugin_label.endswith("(续)")
+                plugin_name = plugin_label[:-3].strip() if continued else plugin_label
+                current_card = {
+                    "plugin": plugin_name,
+                    "continued": continued,
+                    "commands": [],
+                }
+                cards.append(current_card)
+                current_command = None
+                continue
+            if stripped.startswith("/") and " - " in stripped and current_card is not None:
+                command_name, command_desc = stripped[1:].split(" - ", 1)
+                clean_desc, args = self._extract_arg_lines(command_desc)
+                current_command = {
+                    "name": command_name.strip(),
+                    "description": clean_desc,
+                    "args": args,
+                    "aliases": "",
+                }
+                current_card["commands"].append(current_command)
+                continue
+            if stripped.startswith("别名:") and current_command is not None:
+                current_command["aliases"] = stripped.replace("别名:", "", 1).strip()
+        return cards
 
     def _decode_token_expire_at(self, token: str) -> int:
         try:
@@ -639,42 +723,69 @@ class MyPlugin(Star):
         total_items: int,
         last_update: str,
         source_mode: str,
-        page_size: int = 12,
+        page_size: int = 32,
     ) -> list[str]:
         if page_size <= 0:
             raise ValueError("page_size must be greater than 0")
         if not items:
             return ["当前暂无可展示命令，请先执行 /updateHelpMenu 刷新。"]
 
-        pages: list[str] = []
-        total_pages = (len(items) + page_size - 1) // page_size
-        for page_index in range(total_pages):
-            start = page_index * page_size
-            current_items = items[start : start + page_size]
-            grouped: dict[str, list[CommandDocItem]] = defaultdict(list)
-            for item in current_items:
-                grouped[item.plugin_name].append(item)
+        grouped: dict[str, list[CommandDocItem]] = defaultdict(list)
+        for item in items:
+            grouped[item.plugin_name].append(item)
 
+        page_blocks: list[list[str]] = []
+        current_page: list[str] = []
+        current_units = 0
+        for plugin_name in sorted(grouped.keys(), key=str.lower):
+            plugin_items = grouped[plugin_name]
+            pointer = 0
+            is_continued = False
+            while pointer < len(plugin_items):
+                if current_units >= page_size:
+                    page_blocks.append(current_page)
+                    current_page = []
+                    current_units = 0
+
+                title = f"[{plugin_name}{'(续)' if is_continued else ''}]"
+                current_page.append(title)
+                current_units += 1
+
+                while pointer < len(plugin_items):
+                    entry = plugin_items[pointer]
+                    _, args = self._extract_arg_lines(entry.description)
+                    estimated_units = 1 + (1 if entry.aliases else 0) + len(args)
+                    if current_units + estimated_units > page_size and current_units > 1:
+                        break
+                    current_page.append(f"/{entry.command} - {entry.description}")
+                    current_units += 1
+                    if entry.aliases:
+                        current_page.append(f"  别名: {', '.join(entry.aliases)}")
+                        current_units += 1
+                    pointer += 1
+
+                current_page.append("")
+                current_units += 1
+                is_continued = pointer < len(plugin_items)
+
+        if current_page:
+            page_blocks.append(current_page)
+
+        pages: list[str] = []
+        total_pages = len(page_blocks)
+        for page_index, block_lines in enumerate(page_blocks, start=1):
             lines = [
                 "指令帮助菜单",
                 (
-                    f"第 {page_index + 1}/{total_pages} 页 | "
+                    f"第 {page_index}/{total_pages} 页 | "
                     f"命令数: {total_items} | "
                     f"来源: {self._mode_display_name(source_mode)} | "
                     f"文档更新时间: {last_update}"
                 ),
                 "用法: /helpMenu <页码|next|prev> | /updateHelpMenu（仅限管理员）",
                 "",
+                *block_lines,
             ]
-
-            for plugin_name in sorted(grouped.keys(), key=str.lower):
-                lines.append(f"[{plugin_name}]")
-                for entry in grouped[plugin_name]:
-                    lines.append(f"/{entry.command} - {entry.description}")
-                    if entry.aliases:
-                        lines.append(f"  别名: {', '.join(entry.aliases)}")
-                lines.append("")
-
             pages.append("\n".join(lines).strip())
         return pages
 
