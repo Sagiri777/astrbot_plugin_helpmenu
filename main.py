@@ -48,7 +48,7 @@ class HttpStatusError(HelpMenuError):
         self.status = status
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "0.1.0")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.0")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -67,57 +67,164 @@ class MyPlugin(Star):
     }
     _HELP_MENU_IMAGE_TEMPLATES = {
         "classic": """
-<div style="background:#f3f6fb;padding:24px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:980px;margin:0 auto;background:#ffffff;border:1px solid #dde3ec;border-radius:18px;padding:22px 24px;">
-    <div style="font-size:30px;font-weight:700;color:#1f2a37;line-height:1.2;">{{ title }}</div>
-    <div style="font-size:16px;color:#4b5563;margin-top:8px;">{{ subtitle }}</div>
+<div style="background:#eef3fb;padding:22px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="max-width:900px;min-height:1200px;margin:0 auto;background:#ffffff;border:1px solid #d7e1ef;border-radius:18px;padding:20px;box-sizing:border-box;">
+    <div style="font-size:15px;color:#4b5563;line-height:1.5;">{{ subtitle }}</div>
     {% if warning %}
-    <div style="margin-top:14px;padding:10px 12px;border:1px solid #f1c988;background:#fff7e8;border-radius:10px;font-size:15px;color:#7c5800;">
+    <div style="margin-top:10px;padding:10px 12px;border:1px solid #f1c988;background:#fff7e8;border-radius:10px;font-size:14px;color:#7c5800;">
       {{ warning }}
     </div>
     {% endif %}
-    <div style="margin-top:14px;border-top:1px dashed #d7deea;padding-top:12px;">
-      {% for line in lines %}
-      <div style="font-size:18px;color:#1f2a37;line-height:1.72;white-space:pre-wrap;">{{ line }}</div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-items:start;">
+      {% for card in cards %}
+      <div style="border:1px solid #d8e3f1;border-radius:12px;background:#f9fbff;padding:12px;break-inside:avoid;">
+        <div style="font-size:18px;color:#1d2d44;font-weight:700;">{{ card.plugin }}</div>
+        {% if card.continued %}
+        <div style="font-size:12px;color:#5c6e86;margin-top:2px;">本页续接</div>
+        {% endif %}
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+          {% for command in card.commands %}
+          <div style="border:1px solid #dce6f4;border-radius:8px;background:#ffffff;padding:8px;">
+            <div style="font-size:15px;color:#16273f;font-weight:600;line-height:1.5;">/{{ command.name }}</div>
+            <div style="margin-top:4px;font-size:13px;color:#2f3f55;line-height:1.5;">{{ command.description }}</div>
+            {% if command.args %}
+            <div style="margin-top:6px;padding:6px;border-radius:6px;background:#f1f6ff;border:1px solid #d7e6ff;">
+              {% for arg in command.args %}
+              <div style="font-size:12px;color:#19406f;line-height:1.45;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if command.aliases %}
+            <div style="margin-top:4px;font-size:12px;color:#4b607b;line-height:1.4;">别名: {{ command.aliases }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
       {% endfor %}
     </div>
   </div>
 </div>
 """,
         "frost": """
-<div style="background:linear-gradient(135deg,#edf6ff 0%,#f7fbff 100%);padding:24px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:980px;margin:0 auto;background:rgba(255,255,255,0.88);border:1px solid #cfe3ff;border-radius:20px;padding:22px 24px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;">
-      <div style="font-size:30px;font-weight:760;color:#0f2f54;line-height:1.2;">{{ title }}</div>
-      <div style="font-size:14px;color:#4776a8;">Template: Frost</div>
-    </div>
-    <div style="font-size:15px;color:#355b82;margin-top:8px;">{{ subtitle }}</div>
+<div style="background:linear-gradient(135deg,#e8f4ff 0%,#f6fbff 55%,#edf7ff 100%);padding:24px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="max-width:900px;min-height:1200px;margin:0 auto;background:rgba(255,255,255,0.9);border:1px solid #cde0ff;border-radius:20px;padding:20px;box-sizing:border-box;backdrop-filter:blur(4px);">
+    <div style="font-size:14px;color:#3b648f;line-height:1.5;">{{ subtitle }}</div>
     {% if warning %}
-    <div style="margin-top:12px;padding:10px 12px;border:1px solid #f2b566;background:#fff4e3;border-radius:10px;font-size:14px;color:#7a4f00;">
+    <div style="margin-top:10px;padding:10px 12px;border:1px solid #f2b566;background:#fff4e3;border-radius:10px;font-size:13px;color:#7a4f00;">
       {{ warning }}
     </div>
     {% endif %}
-    <div style="margin-top:14px;padding:14px;border:1px solid #d7e8ff;background:#f9fcff;border-radius:12px;">
-      {% for line in lines %}
-      <div style="font-size:17px;color:#133a63;line-height:1.68;white-space:pre-wrap;">{{ line }}</div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-items:start;">
+      {% for card in cards %}
+      <div style="border:1px solid #d3e5ff;border-radius:14px;background:linear-gradient(180deg,#fbfdff 0%,#f3f8ff 100%);padding:12px;box-shadow:0 6px 18px rgba(54,96,146,0.08);break-inside:avoid;">
+        <div style="font-size:17px;color:#17406d;font-weight:700;">{{ card.plugin }}</div>
+        {% if card.continued %}
+        <div style="font-size:12px;color:#5b7ca0;margin-top:2px;">本页续接</div>
+        {% endif %}
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+          {% for command in card.commands %}
+          <div style="border:1px solid #d8e8ff;border-radius:9px;background:#ffffff;padding:8px;">
+            <div style="font-size:14px;color:#133a63;font-weight:650;line-height:1.5;">/{{ command.name }}</div>
+            <div style="margin-top:4px;font-size:13px;color:#36587c;line-height:1.45;">{{ command.description }}</div>
+            {% if command.args %}
+            <div style="margin-top:6px;padding:6px;border-radius:6px;background:#ecf4ff;border:1px solid #d2e4ff;">
+              {% for arg in command.args %}
+              <div style="font-size:12px;color:#245585;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if command.aliases %}
+            <div style="margin-top:4px;font-size:12px;color:#4f6f91;line-height:1.4;">别名: {{ command.aliases }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
       {% endfor %}
     </div>
   </div>
 </div>
 """,
         "compact": """
-<div style="background:#f7f8fb;padding:18px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:980px;margin:0 auto;background:#ffffff;border:1px solid #dfe5ee;border-radius:12px;padding:16px 18px;">
-    <div style="font-size:24px;font-weight:700;color:#1b2430;line-height:1.3;">{{ title }}</div>
-    <div style="font-size:13px;color:#566176;margin-top:6px;">{{ subtitle }}</div>
+<div style="background:#f4f5f9;padding:18px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="max-width:900px;min-height:1200px;margin:0 auto;background:#ffffff;border:1px solid #dde3ed;border-radius:12px;padding:16px;box-sizing:border-box;">
+    <div style="font-size:13px;color:#566176;line-height:1.45;">{{ subtitle }}</div>
     {% if warning %}
-    <div style="margin-top:10px;padding:8px 10px;background:#fff7ea;border:1px solid #f4d09b;border-radius:8px;font-size:13px;color:#6f4a00;">
+    <div style="margin-top:9px;padding:8px 10px;background:#fff7ea;border:1px solid #f4d09b;border-radius:8px;font-size:13px;color:#6f4a00;">
       {{ warning }}
     </div>
     {% endif %}
-    <div style="margin-top:10px;">
-      {% for line in lines %}
-      <div style="font-size:15px;color:#202938;line-height:1.58;white-space:pre-wrap;">{{ line }}</div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;align-items:start;">
+      {% for card in cards %}
+      <div style="border:1px solid #dfe6f1;border-radius:10px;background:#fafcff;padding:10px;break-inside:avoid;">
+        <div style="font-size:16px;color:#1f2a37;font-weight:700;">{{ card.plugin }}</div>
+        {% if card.continued %}
+        <div style="font-size:11px;color:#6c7a8e;margin-top:2px;">本页续接</div>
+        {% endif %}
+        <div style="margin-top:6px;display:flex;flex-direction:column;gap:6px;">
+          {% for command in card.commands %}
+          <div style="border:1px solid #e2e9f3;border-radius:8px;background:#ffffff;padding:7px;">
+            <div style="font-size:13px;color:#1f2a37;font-weight:620;line-height:1.4;">/{{ command.name }}</div>
+            <div style="margin-top:3px;font-size:12px;color:#485568;line-height:1.4;">{{ command.description }}</div>
+            {% if command.args %}
+            <div style="margin-top:4px;padding:5px;border-radius:6px;background:#f3f7fd;border:1px solid #dce6f5;">
+              {% for arg in command.args %}
+              <div style="font-size:11px;color:#314865;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if command.aliases %}
+            <div style="margin-top:3px;font-size:11px;color:#5d6c80;line-height:1.35;">别名: {{ command.aliases }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+""",
+        "ember_industrial": """
+<div style="background:linear-gradient(140deg,#3a2b24 0%,#5a3f31 40%,#2d2624 100%);padding:24px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;position:relative;">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;"></div>
+  <div style="max-width:900px;min-height:1200px;margin:0 auto;background:linear-gradient(180deg,#fff0dc 0%,#f6e3cc 100%);border:1px solid #c08f5f;border-radius:18px;padding:20px;box-sizing:border-box;position:relative;box-shadow:0 10px 28px rgba(18,10,6,0.35);">
+    <div style="font-size:14px;color:#5d432c;line-height:1.5;">{{ subtitle }}</div>
+    {% if warning %}
+    <div style="margin-top:10px;padding:10px 12px;border:1px solid #dcaa74;background:#fff4e6;border-radius:10px;font-size:13px;color:#7a4a17;">
+      {{ warning }}
+    </div>
+    {% endif %}
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-items:start;">
+      {% for card in cards %}
+      <div style="border:1px solid #d3a878;border-radius:12px;background:#fff7ec;padding:12px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.4);break-inside:avoid;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:10px;height:10px;border-radius:50%;background:#59ff8d;box-shadow:0 0 8px #45ff84,0 0 14px rgba(69,255,132,0.8);display:inline-block;"></span>
+          <div style="font-size:17px;color:#4f311b;font-weight:700;">{{ card.plugin }}</div>
+        </div>
+        {% if card.continued %}
+        <div style="font-size:12px;color:#7b6048;margin-top:2px;">本页续接</div>
+        {% endif %}
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+          {% for command in card.commands %}
+          <div style="border:1px solid #deb487;border-radius:8px;background:#fffdf9;padding:8px;">
+            <div style="font-size:14px;color:#55351f;font-weight:650;line-height:1.45;">/{{ command.name }}</div>
+            <div style="margin-top:4px;font-size:12px;color:#6b4a31;line-height:1.45;">{{ command.description }}</div>
+            {% if command.args %}
+            <div style="margin-top:5px;padding:5px;border-radius:6px;background:#fff0df;border:1px solid #e4b989;">
+              {% for arg in command.args %}
+              <div style="font-size:11px;color:#624124;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if command.aliases %}
+            <div style="margin-top:4px;font-size:11px;color:#7a5a41;line-height:1.35;">别名: {{ command.aliases }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
       {% endfor %}
     </div>
   </div>
@@ -226,22 +333,84 @@ class MyPlugin(Star):
         total_pages: int,
         snapshot: HelpCacheSnapshot,
     ) -> str:
-        lines = [line for line in page_text.split("\n") if line.strip()]
+        cards = self._parse_cards_from_page_text(page_text)
         data = {
-            "title": "指令帮助菜单",
             "subtitle": (
                 f"第 {page}/{total_pages} 页 | 命令数: {snapshot.total_items} | "
                 f"来源: {self._mode_display_name(snapshot.source_mode)} | "
                 f"文档更新时间: {snapshot.last_update}"
             ),
             "warning": warning.strip(),
-            "lines": lines,
+            "cards": cards,
         }
         return await self.html_render(
             self._get_image_template(),
             data,
             options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
         )
+
+    def _extract_arg_lines(self, description: str) -> tuple[str, list[dict[str, str]]]:
+        matches = list(
+            re.finditer(
+                r"(Arg[\w\-\u4e00-\u9fa5]*)\s*[:：]\s*([^,，;；。]+)",
+                description,
+                flags=re.IGNORECASE,
+            )
+        )
+        args: list[dict[str, str]] = []
+        for match in matches:
+            args.append(
+                {
+                    "name": match.group(1).strip(),
+                    "detail": match.group(2).strip(),
+                }
+            )
+        cleaned = re.sub(
+            r"(Arg[\w\-\u4e00-\u9fa5]*)\s*[:：]\s*([^,，;；。]+)",
+            "",
+            description,
+            flags=re.IGNORECASE,
+        )
+        cleaned = re.sub(r"[，,;；]+", "，", cleaned).strip("，,;；。 ")
+        return (cleaned or description), args
+
+    def _parse_cards_from_page_text(self, page_text: str) -> list[dict[str, object]]:
+        cards: list[dict[str, object]] = []
+        current_card: dict[str, object] | None = None
+        current_command: dict[str, object] | None = None
+        for raw_line in page_text.split("\n"):
+            line = raw_line.rstrip()
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("指令帮助菜单") or stripped.startswith("第 ") or stripped.startswith("用法:"):
+                continue
+            if stripped.startswith("[") and stripped.endswith("]"):
+                plugin_label = stripped[1:-1]
+                continued = plugin_label.endswith("(续)")
+                plugin_name = plugin_label[:-3].strip() if continued else plugin_label
+                current_card = {
+                    "plugin": plugin_name,
+                    "continued": continued,
+                    "commands": [],
+                }
+                cards.append(current_card)
+                current_command = None
+                continue
+            if stripped.startswith("/") and " - " in stripped and current_card is not None:
+                command_name, command_desc = stripped[1:].split(" - ", 1)
+                clean_desc, args = self._extract_arg_lines(command_desc)
+                current_command = {
+                    "name": command_name.strip(),
+                    "description": clean_desc,
+                    "args": args,
+                    "aliases": "",
+                }
+                current_card["commands"].append(current_command)
+                continue
+            if stripped.startswith("别名:") and current_command is not None:
+                current_command["aliases"] = stripped.replace("别名:", "", 1).strip()
+        return cards
 
     def _decode_token_expire_at(self, token: str) -> int:
         try:
@@ -639,42 +808,69 @@ class MyPlugin(Star):
         total_items: int,
         last_update: str,
         source_mode: str,
-        page_size: int = 12,
+        page_size: int = 32,
     ) -> list[str]:
         if page_size <= 0:
             raise ValueError("page_size must be greater than 0")
         if not items:
             return ["当前暂无可展示命令，请先执行 /updateHelpMenu 刷新。"]
 
-        pages: list[str] = []
-        total_pages = (len(items) + page_size - 1) // page_size
-        for page_index in range(total_pages):
-            start = page_index * page_size
-            current_items = items[start : start + page_size]
-            grouped: dict[str, list[CommandDocItem]] = defaultdict(list)
-            for item in current_items:
-                grouped[item.plugin_name].append(item)
+        grouped: dict[str, list[CommandDocItem]] = defaultdict(list)
+        for item in items:
+            grouped[item.plugin_name].append(item)
 
+        page_blocks: list[list[str]] = []
+        current_page: list[str] = []
+        current_units = 0
+        for plugin_name in sorted(grouped.keys(), key=str.lower):
+            plugin_items = grouped[plugin_name]
+            pointer = 0
+            is_continued = False
+            while pointer < len(plugin_items):
+                if current_units >= page_size:
+                    page_blocks.append(current_page)
+                    current_page = []
+                    current_units = 0
+
+                title = f"[{plugin_name}{'(续)' if is_continued else ''}]"
+                current_page.append(title)
+                current_units += 1
+
+                while pointer < len(plugin_items):
+                    entry = plugin_items[pointer]
+                    _, args = self._extract_arg_lines(entry.description)
+                    estimated_units = 1 + (1 if entry.aliases else 0) + len(args)
+                    if current_units + estimated_units > page_size and current_units > 1:
+                        break
+                    current_page.append(f"/{entry.command} - {entry.description}")
+                    current_units += 1
+                    if entry.aliases:
+                        current_page.append(f"  别名: {', '.join(entry.aliases)}")
+                        current_units += 1
+                    pointer += 1
+
+                current_page.append("")
+                current_units += 1
+                is_continued = pointer < len(plugin_items)
+
+        if current_page:
+            page_blocks.append(current_page)
+
+        pages: list[str] = []
+        total_pages = len(page_blocks)
+        for page_index, block_lines in enumerate(page_blocks, start=1):
             lines = [
                 "指令帮助菜单",
                 (
-                    f"第 {page_index + 1}/{total_pages} 页 | "
+                    f"第 {page_index}/{total_pages} 页 | "
                     f"命令数: {total_items} | "
                     f"来源: {self._mode_display_name(source_mode)} | "
                     f"文档更新时间: {last_update}"
                 ),
                 "用法: /helpMenu <页码|next|prev> | /updateHelpMenu（仅限管理员）",
                 "",
+                *block_lines,
             ]
-
-            for plugin_name in sorted(grouped.keys(), key=str.lower):
-                lines.append(f"[{plugin_name}]")
-                for entry in grouped[plugin_name]:
-                    lines.append(f"/{entry.command} - {entry.description}")
-                    if entry.aliases:
-                        lines.append(f"  别名: {', '.join(entry.aliases)}")
-                lines.append("")
-
             pages.append("\n".join(lines).strip())
         return pages
 

@@ -10,7 +10,7 @@
 - 支持两种输出模式：
   - `text`：文本分页输出。
   - `image`：通过 HTML 模板渲染帮助菜单图片。
-- 支持图片模板：`classic`、`frost`、`compact`。
+- 支持图片模板：`classic`、`frost`、`compact`、`ember_industrial`（暖色现代工业风）。
 - 支持会话分页浏览：`/helpMenu`、`/helpMenu <页码>`、`/helpMenu next`、`/helpMenu prev`。
 - 支持管理员刷新：`/updateHelpMenu`。
 - 插件加载/卸载事件发生时会自动刷新帮助菜单缓存。
@@ -20,7 +20,7 @@
 
 - `fetch_mode`：命令文档获取模式，`metadata` 或 `api`，默认 `metadata`。
 - `output_mode`：帮助菜单输出模式，`text` 或 `image`，默认 `text`。
-- `image_template`：图片模板风格，`classic` / `frost` / `compact`，默认 `classic`。
+- `image_template`：图片模板风格，`classic` / `frost` / `compact` / `ember_industrial`，默认 `classic`。
 - 图片渲染参数已内置为经过测试的默认值（PNG、整页截图、禁用动画、隐藏光标、CSS 缩放），无需额外配置。
 - `admin_name`：Dashboard 登录用户名（仅 `api` 模式需要）。
 - `admin_password`：Dashboard 登录密码（仅 `api` 模式需要）。

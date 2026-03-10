@@ -25,7 +25,8 @@
     "options": [
       "classic",
       "frost",
-      "compact"
+      "compact",
+      "ember_industrial"
     ],
     "hint": "仅当 output_mode=image 时生效；若填写非法值会自动回退为 classic。",
     "default": "classic"
