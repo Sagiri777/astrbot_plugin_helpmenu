@@ -4,7 +4,6 @@ import hashlib
 import json
 import re
 from collections import OrderedDict, defaultdict
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -59,6 +58,13 @@ class MyPlugin(Star):
     _OUTPUT_TEXT = "text"
     _OUTPUT_IMAGE = "image"
     _DEFAULT_IMAGE_TEMPLATE = "classic"
+    _DEFAULT_IMAGE_RENDER_OPTIONS = {
+        "type": "png",
+        "full_page": True,
+        "animations": "disabled",
+        "caret": "hide",
+        "scale": "css",
+    }
     _HELP_MENU_IMAGE_TEMPLATES = {
         "classic": """
 <div style="background:#f3f6fb;padding:24px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
@@ -194,19 +200,6 @@ class MyPlugin(Star):
         )
         return self._OUTPUT_TEXT
 
-    def _get_image_render_options(self) -> dict:
-        default_options = {
-            "type": "png",
-            "full_page": True,
-            "animations": "disabled",
-            "caret": "hide",
-            "scale": "css",
-        }
-        custom_options = self.config.get("image_render_options")
-        if isinstance(custom_options, Mapping):
-            default_options.update(dict(custom_options))
-        return default_options
-
     def _get_image_template_name(self) -> str:
         template_name = (
             str(self.config.get("image_template") or self._DEFAULT_IMAGE_TEMPLATE)
@@ -247,7 +240,7 @@ class MyPlugin(Star):
         return await self.html_render(
             self._get_image_template(),
             data,
-            options=self._get_image_render_options(),
+            options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
         )
 
     def _decode_token_expire_at(self, token: str) -> int:

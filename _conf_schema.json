@@ -30,12 +30,6 @@
     "hint": "仅当 output_mode=image 时生效；若填写非法值会自动回退为 classic。",
     "default": "classic"
   },
-  "image_render_options": {
-    "description": "图片渲染选项(可选)",
-    "type": "object",
-    "items": {},
-    "hint": "透传 html_render options，例如 type/full_page/scale/quality/timeout。"
-  },
   "admin_name": {
     "description": "登录ASTR后台的用户名",
     "type": "string"
