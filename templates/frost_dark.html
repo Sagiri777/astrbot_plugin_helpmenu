@@ -1,4 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+</style>
+</head>
+<body>
 <div style="width:fit-content;min-width:600px;max-width:940px;background:rgba(35,45,58,0.7);border:1px solid rgba(70,110,150,0.5);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 42px rgba(0,0,0,0.35);backdrop-filter:blur(17px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="font-size:24px;color:#d0e6f5;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;">帮助菜单</div>
   <div style="font-size:14px;color:#8ab4d0;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
   <div style="margin-top:10px;padding:10px 12px;border:1px solid rgba(180,140,60,0.5);background:rgba(50,45,25,0.6);border-radius:12px;font-size:13px;color:#c4a86a;backdrop-filter:blur(8px);">
@@ -8,24 +22,24 @@
   <div style="margin-top:14px;column-count:3;column-gap:12px;">
     {% for card in cards %}
     <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(60,90,130,0.5);border-radius:16px;background:linear-gradient(170deg,rgba(45,58,75,0.75) 0%,rgba(35,48,65,0.65) 100%);box-shadow:0 10px 24px rgba(0,0,0,0.25);backdrop-filter:blur(11px);">
-      <div style="font-size:17px;color:#a8cce8;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
+      <div style="font-size:17px;color:#cce4f8;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
       {% if card.continued %}
       <div style="font-size:12px;color:#6a8aa8;margin-top:2px;">本页续接</div>
       {% endif %}
       <div style="margin-top:8px;">
         {% for command in card.commands %}
         <div style="margin-top:8px;border:1px solid rgba(55,80,115,0.5);border-radius:11px;background:rgba(40,52,68,0.65);padding:8px;backdrop-filter:blur(9px);">
-          <div style="font-size:14px;color:#9ab8d8;font-weight:650;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
-          <div style="margin-top:4px;font-size:12px;color:#7a9ab8;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
+          <div style="font-size:14px;color:#bdd0ef;font-weight:650;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
+          <div style="margin-top:4px;font-size:12px;color:#9bc4e5;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
           {% if command.args %}
           <div style="margin-top:6px;padding:6px;border-radius:8px;background:rgba(45,62,85,0.6);border:1px solid rgba(55,80,115,0.5);">
             {% for arg in command.args %}
-            <div style="font-size:11px;color:#8ab0d0;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+            <div style="font-size:11px;color:#a7c8e8;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
             {% endfor %}
           </div>
           {% endif %}
           {% if command.aliases %}
-          <div style="margin-top:4px;font-size:11px;color:#5a7a98;line-height:1.38;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
+          <div style="margin-top:4px;font-size:11px;color:#82a5c4;line-height:1.38;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
           {% endif %}
         </div>
         {% endfor %}
@@ -34,3 +48,5 @@
     {% endfor %}
   </div>
 </div>
+</body>
+</html>

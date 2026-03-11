@@ -1,5 +1,19 @@
-<div style="width:fit-content;min-width:560px;max-width:920px;background:rgba(255,255,255,0.5);border:1px solid rgba(189,196,245,0.52);border-radius:20px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(84,96,165,0.12);backdrop-filter:blur(15px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="font-size:13px;color:#4a4f7b;line-height:1.5;font-weight:520;">{{ subtitle }}</div>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+</style>
+</head>
+<body>
+<div style="width:fit-content;min-width:560px;max-width:920px;background:rgba(255,255,255,0.7);border:1px solid rgba(130,165,215,0.4);border-radius:20px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(45,80,135,0.12);backdrop-filter:blur(15px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="font-size:22px;color:#1a3c61;font-weight:700;text-align:center;margin-bottom:10px;letter-spacing:1px;">帮助菜单</div>
+  <div style="font-size:13px;color:#455972;line-height:1.5;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
   <div style="margin-top:10px;padding:9px 11px;background:rgba(255,241,220,0.66);border:1px solid rgba(244,193,120,0.58);border-radius:11px;font-size:12px;color:#7a4a00;backdrop-filter:blur(8px);">
     {{ warning }}
@@ -34,3 +48,5 @@
     {% endfor %}
   </div>
 </div>
+</body>
+</html>
