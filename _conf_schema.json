@@ -19,18 +19,6 @@
     "hint": "text: 文本分页输出；image: 使用 HTML 模板渲染图片输出。",
     "default": "text"
   },
-  "image_template": {
-    "description": "图片模板风格",
-    "type": "string",
-    "options": [
-      "classic",
-      "frost",
-      "compact",
-      "ember_industrial"
-    ],
-    "hint": "仅当 output_mode=image 时生效；若填写非法值会自动回退为 classic。",
-    "default": "classic"
-  },
   "admin_name": {
     "description": "登录ASTR后台的用户名",
     "type": "string"
@@ -53,5 +41,35 @@
     "description": "Debug Mode",
     "type": "bool",
     "default": false
+  },
+  "light_template": {
+    "description": "浅色图片模板",
+    "type": "string",
+    "options": [
+      "classic",
+      "frost",
+      "compact",
+      "ember_industrial",
+      "sakura"
+    ],
+    "hint": "仅当 output_mode=image 时生效；若填写非法值会自动回退为 classic。",
+    "default": "classic"
+  },
+  "dark_template": {
+    "description": "深色图片模板",
+    "type": "string",
+    "hint": "留空默认使用浅色同款深色版(自动追加 _dark)。"
+  },
+  "dark_time_start": {
+    "description": "深色模式开始时间(北京时间)",
+    "type": "string",
+    "hint": "格式如 18:00",
+    "default": "18:00"
+  },
+  "dark_time_end": {
+    "description": "深色模式结束时间(北京时间)",
+    "type": "string",
+    "hint": "格式如 06:00",
+    "default": "06:00"
   }
 }

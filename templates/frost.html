@@ -1,38 +1,36 @@
-<div style="background:radial-gradient(circle at 5% 10%,rgba(56,189,248,0.3),transparent 34%),radial-gradient(circle at 96% 2%,rgba(129,140,248,0.3),transparent 30%),linear-gradient(135deg,#e6f6ff 0%,#edf7ff 50%,#f2f9ff 100%);padding:24px;font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:940px;min-height:1200px;margin:0 auto;background:rgba(255,255,255,0.5);border:1px solid rgba(166,220,255,0.56);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 42px rgba(54,106,161,0.14);backdrop-filter:blur(17px);">
-    <div style="font-size:14px;color:#21567e;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
-    {% if warning %}
-    <div style="margin-top:10px;padding:10px 12px;border:1px solid rgba(247,188,111,0.64);background:rgba(255,241,220,0.7);border-radius:12px;font-size:13px;color:#7b4d00;backdrop-filter:blur(8px);">
-      {{ warning }}
-    </div>
-    {% endif %}
-    <div style="margin-top:14px;column-count:3;column-gap:12px;">
-      {% for card in cards %}
-      <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(173,220,255,0.68);border-radius:16px;background:linear-gradient(170deg,rgba(255,255,255,0.7) 0%,rgba(231,246,255,0.54) 100%);box-shadow:0 10px 24px rgba(37,109,170,0.12);backdrop-filter:blur(11px);">
-        <div style="font-size:17px;color:#0f4b79;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
-        {% if card.continued %}
-        <div style="font-size:12px;color:#4b7ba3;margin-top:2px;">本页续接</div>
-        {% endif %}
-        <div style="margin-top:8px;">
-          {% for command in card.commands %}
-          <div style="margin-top:8px;border:1px solid rgba(186,222,250,0.74);border-radius:11px;background:rgba(255,255,255,0.66);padding:8px;backdrop-filter:blur(9px);">
-            <div style="font-size:14px;color:#0f416a;font-weight:650;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
-            <div style="margin-top:4px;font-size:12px;color:#2f638f;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
-            {% if command.args %}
-            <div style="margin-top:6px;padding:6px;border-radius:8px;background:rgba(224,241,255,0.72);border:1px solid rgba(171,213,247,0.72);">
-              {% for arg in command.args %}
-              <div style="font-size:11px;color:#1f5887;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if command.aliases %}
-            <div style="margin-top:4px;font-size:11px;color:#4b7398;line-height:1.38;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
-            {% endif %}
+<div style="width:fit-content;min-width:600px;max-width:940px;background:rgba(255,255,255,0.5);border:1px solid rgba(166,220,255,0.56);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 42px rgba(54,106,161,0.14);backdrop-filter:blur(17px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="font-size:14px;color:#21567e;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
+  {% if warning %}
+  <div style="margin-top:10px;padding:10px 12px;border:1px solid rgba(247,188,111,0.64);background:rgba(255,241,220,0.7);border-radius:12px;font-size:13px;color:#7b4d00;backdrop-filter:blur(8px);">
+    {{ warning }}
+  </div>
+  {% endif %}
+  <div style="margin-top:14px;column-count:3;column-gap:12px;">
+    {% for card in cards %}
+    <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(173,220,255,0.68);border-radius:16px;background:linear-gradient(170deg,rgba(255,255,255,0.7) 0%,rgba(231,246,255,0.54) 100%);box-shadow:0 10px 24px rgba(37,109,170,0.12);backdrop-filter:blur(11px);">
+      <div style="font-size:17px;color:#0f4b79;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
+      {% if card.continued %}
+      <div style="font-size:12px;color:#4b7ba3;margin-top:2px;">本页续接</div>
+      {% endif %}
+      <div style="margin-top:8px;">
+        {% for command in card.commands %}
+        <div style="margin-top:8px;border:1px solid rgba(186,222,250,0.74);border-radius:11px;background:rgba(255,255,255,0.66);padding:8px;backdrop-filter:blur(9px);">
+          <div style="font-size:14px;color:#0f416a;font-weight:650;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
+          <div style="margin-top:4px;font-size:12px;color:#2f638f;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
+          {% if command.args %}
+          <div style="margin-top:6px;padding:6px;border-radius:8px;background:rgba(224,241,255,0.72);border:1px solid rgba(171,213,247,0.72);">
+            {% for arg in command.args %}
+            <div style="font-size:11px;color:#1f5887;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
+            {% endfor %}
           </div>
-          {% endfor %}
+          {% endif %}
+          {% if command.aliases %}
+          <div style="margin-top:4px;font-size:11px;color:#4b7398;line-height:1.38;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
+          {% endif %}
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
+    {% endfor %}
   </div>
 </div>

@@ -5,7 +5,8 @@ import json
 import re
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 import aiohttp
 
@@ -65,171 +66,6 @@ class MyPlugin(Star):
         "animations": "disabled",
         "caret": "hide",
         "scale": "css",
-    }
-    _HELP_MENU_IMAGE_TEMPLATES = {
-        "classic": """
-<div style="background:radial-gradient(circle at 8% 10%,rgba(120,184,255,0.35),transparent 36%),radial-gradient(circle at 92% 3%,rgba(167,139,250,0.3),transparent 34%),linear-gradient(145deg,#e9f2ff 0%,#eff6ff 48%,#f5f8ff 100%);padding:24px;font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:940px;min-height:1200px;margin:0 auto;background:rgba(255,255,255,0.52);border:1px solid rgba(165,195,232,0.5);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 18px 48px rgba(72,105,151,0.15);backdrop-filter:blur(16px);">
-    <div style="font-size:14px;color:#304962;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
-    {% if warning %}
-    <div style="margin-top:10px;padding:10px 12px;border:1px solid rgba(248,201,124,0.62);background:rgba(255,243,224,0.66);border-radius:12px;font-size:13px;color:#7d5202;backdrop-filter:blur(8px);">
-      {{ warning }}
-    </div>
-    {% endif %}
-    <div style="margin-top:14px;column-count:3;column-gap:12px;">
-      {% for card in cards %}
-      <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(180,209,242,0.62);border-radius:16px;background:linear-gradient(165deg,rgba(255,255,255,0.72) 0%,rgba(237,247,255,0.52) 100%);box-shadow:0 10px 26px rgba(66,98,141,0.12);backdrop-filter:blur(11px);">
-        <div style="font-size:17px;color:#17395b;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
-        {% if card.continued %}
-        <div style="font-size:12px;color:#557394;margin-top:2px;">本页续接</div>
-        {% endif %}
-        <div style="margin-top:8px;">
-          {% for command in card.commands %}
-          <div style="margin-top:8px;border:1px solid rgba(193,219,250,0.72);border-radius:11px;background:rgba(255,255,255,0.62);padding:8px;backdrop-filter:blur(9px);">
-            <div style="font-size:14px;color:#16314f;font-weight:650;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
-            <div style="margin-top:4px;font-size:12px;color:#355170;line-height:1.48;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
-            {% if command.args %}
-            <div style="margin-top:6px;padding:6px;border-radius:8px;background:rgba(230,243,255,0.68);border:1px solid rgba(180,210,245,0.68);">
-              {% for arg in command.args %}
-              <div style="font-size:11px;color:#1e4a76;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if command.aliases %}
-            <div style="margin-top:4px;font-size:11px;color:#4e6887;line-height:1.38;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</div>
-""",
-        "frost": """
-<div style="background:radial-gradient(circle at 5% 10%,rgba(56,189,248,0.3),transparent 34%),radial-gradient(circle at 96% 2%,rgba(129,140,248,0.3),transparent 30%),linear-gradient(135deg,#e6f6ff 0%,#edf7ff 50%,#f2f9ff 100%);padding:24px;font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:940px;min-height:1200px;margin:0 auto;background:rgba(255,255,255,0.5);border:1px solid rgba(166,220,255,0.56);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 42px rgba(54,106,161,0.14);backdrop-filter:blur(17px);">
-    <div style="font-size:14px;color:#21567e;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
-    {% if warning %}
-    <div style="margin-top:10px;padding:10px 12px;border:1px solid rgba(247,188,111,0.64);background:rgba(255,241,220,0.7);border-radius:12px;font-size:13px;color:#7b4d00;backdrop-filter:blur(8px);">
-      {{ warning }}
-    </div>
-    {% endif %}
-    <div style="margin-top:14px;column-count:3;column-gap:12px;">
-      {% for card in cards %}
-      <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(173,220,255,0.68);border-radius:16px;background:linear-gradient(170deg,rgba(255,255,255,0.7) 0%,rgba(231,246,255,0.54) 100%);box-shadow:0 10px 24px rgba(37,109,170,0.12);backdrop-filter:blur(11px);">
-        <div style="font-size:17px;color:#0f4b79;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
-        {% if card.continued %}
-        <div style="font-size:12px;color:#4b7ba3;margin-top:2px;">本页续接</div>
-        {% endif %}
-        <div style="margin-top:8px;">
-          {% for command in card.commands %}
-          <div style="margin-top:8px;border:1px solid rgba(186,222,250,0.74);border-radius:11px;background:rgba(255,255,255,0.66);padding:8px;backdrop-filter:blur(9px);">
-            <div style="font-size:14px;color:#0f416a;font-weight:650;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
-            <div style="margin-top:4px;font-size:12px;color:#2f638f;line-height:1.46;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
-            {% if command.args %}
-            <div style="margin-top:6px;padding:6px;border-radius:8px;background:rgba(224,241,255,0.72);border:1px solid rgba(171,213,247,0.72);">
-              {% for arg in command.args %}
-              <div style="font-size:11px;color:#1f5887;line-height:1.4;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if command.aliases %}
-            <div style="margin-top:4px;font-size:11px;color:#4b7398;line-height:1.38;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</div>
-""",
-        "compact": """
-<div style="background:radial-gradient(circle at 8% 14%,rgba(129,140,248,0.24),transparent 33%),radial-gradient(circle at 95% 5%,rgba(45,212,191,0.2),transparent 32%),linear-gradient(155deg,#eef2ff 0%,#f5f7ff 54%,#f7f9ff 100%);padding:20px;font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:920px;min-height:1200px;margin:0 auto;background:rgba(255,255,255,0.5);border:1px solid rgba(189,196,245,0.52);border-radius:20px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(84,96,165,0.12);backdrop-filter:blur(15px);">
-    <div style="font-size:13px;color:#4a4f7b;line-height:1.5;font-weight:520;">{{ subtitle }}</div>
-    {% if warning %}
-    <div style="margin-top:10px;padding:9px 11px;background:rgba(255,241,220,0.66);border:1px solid rgba(244,193,120,0.58);border-radius:11px;font-size:12px;color:#7a4a00;backdrop-filter:blur(8px);">
-      {{ warning }}
-    </div>
-    {% endif %}
-    <div style="margin-top:12px;column-count:3;column-gap:10px;">
-      {% for card in cards %}
-      <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(193,203,247,0.64);border-radius:14px;background:linear-gradient(168deg,rgba(255,255,255,0.7) 0%,rgba(239,242,255,0.54) 100%);box-shadow:0 8px 20px rgba(93,103,164,0.1);backdrop-filter:blur(10px);">
-        <div style="font-size:15px;color:#313a76;font-weight:700;line-height:1.32;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
-        {% if card.continued %}
-        <div style="font-size:11px;color:#636ea0;margin-top:2px;">本页续接</div>
-        {% endif %}
-        <div style="margin-top:7px;">
-          {% for command in card.commands %}
-          <div style="margin-top:7px;border:1px solid rgba(199,209,248,0.72);border-radius:9px;background:rgba(255,255,255,0.64);padding:7px;backdrop-filter:blur(8px);">
-            <div style="font-size:13px;color:#2e376f;font-weight:630;line-height:1.42;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
-            <div style="margin-top:3px;font-size:11px;color:#525f8a;line-height:1.42;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
-            {% if command.args %}
-            <div style="margin-top:5px;padding:5px;border-radius:7px;background:rgba(231,238,255,0.7);border:1px solid rgba(184,198,241,0.74);">
-              {% for arg in command.args %}
-              <div style="font-size:10px;color:#3a4b89;line-height:1.38;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if command.aliases %}
-            <div style="margin-top:4px;font-size:10px;color:#656f97;line-height:1.34;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</div>
-""",
-        "ember_industrial": """
-<div style="background:radial-gradient(circle at 10% 10%,rgba(251,146,60,0.2),transparent 36%),radial-gradient(circle at 95% 4%,rgba(244,114,182,0.2),transparent 32%),linear-gradient(150deg,#fff5ee 0%,#fff8f1 52%,#fffaf5 100%);padding:20px;font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="max-width:940px;min-height:1200px;margin:0 auto;background:rgba(255,255,255,0.5);border:1px solid rgba(241,198,159,0.62);border-radius:22px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(141,82,35,0.13);backdrop-filter:blur(16px);">
-    <div style="font-size:14px;color:#714426;line-height:1.54;font-weight:520;">{{ subtitle }}</div>
-    {% if warning %}
-    <div style="margin-top:10px;padding:9px 12px;border:1px solid rgba(233,163,84,0.62);background:rgba(255,237,216,0.7);border-radius:11px;font-size:13px;color:#7d420a;backdrop-filter:blur(8px);">
-      {{ warning }}
-    </div>
-    {% endif %}
-    <div style="margin-top:12px;column-count:3;column-gap:10px;">
-      {% for card in cards %}
-      <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(242,201,164,0.72);border-radius:14px;background:linear-gradient(165deg,rgba(255,255,255,0.74) 0%,rgba(255,242,230,0.56) 100%);box-shadow:0 8px 20px rgba(146,85,36,0.11);backdrop-filter:blur(10px);">
-        <div style="display:flex;align-items:flex-start;gap:6px;">
-          <span style="width:8px;height:8px;border-radius:999px;background:linear-gradient(135deg,#fb923c,#f97316);display:inline-block;flex:0 0 auto;margin-top:6px;box-shadow:0 0 10px rgba(249,115,22,0.5);"></span>
-          <div style="font-size:15px;color:#5c3418;font-weight:700;line-height:1.32;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
-        </div>
-        {% if card.continued %}
-        <div style="font-size:11px;color:#8a6142;margin-top:2px;padding-left:14px;">本页续接</div>
-        {% endif %}
-        <div style="margin-top:7px;">
-          {% for command in card.commands %}
-          <div style="margin-top:7px;border:1px solid rgba(243,211,179,0.74);border-radius:9px;background:rgba(255,255,255,0.66);padding:7px;backdrop-filter:blur(8px);">
-            <div style="font-size:13px;color:#6a3d1d;font-weight:640;line-height:1.42;word-break:break-word;overflow-wrap:anywhere;">/{{ command.name }}</div>
-            <div style="margin-top:3px;font-size:11px;color:#845a3a;line-height:1.42;word-break:break-word;overflow-wrap:anywhere;">{{ command.description }}</div>
-            {% if command.args %}
-            <div style="margin-top:5px;padding:5px;border-radius:6px;background:rgba(255,240,223,0.72);border:1px solid rgba(239,198,155,0.74);">
-              {% for arg in command.args %}
-              <div style="font-size:10px;color:#7a4a24;line-height:1.36;"><b>{{ arg.name }}</b>: {{ arg.detail }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if command.aliases %}
-            <div style="margin-top:4px;font-size:10px;color:#936948;line-height:1.34;word-break:break-word;overflow-wrap:anywhere;">别名: {{ command.aliases }}</div>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</div>
-""",
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -309,23 +145,69 @@ class MyPlugin(Star):
         )
         return self._OUTPUT_TEXT
 
+    def _is_dark_time(self) -> bool:
+        start_time_str = str(self.config.get("dark_time_start", "18:00")).strip()
+        end_time_str = str(self.config.get("dark_time_end", "06:00")).strip()
+        
+        try:
+            start_hour, start_minute = map(int, start_time_str.split(":"))
+            end_hour, end_minute = map(int, end_time_str.split(":"))
+        except ValueError:
+            logger.warning("[helpmenu] 深色模式时间格式有误，默认不启用。")
+            return False
+
+        # Get current Beijing Time (UTC+8)
+        tz_bj = timezone(timedelta(hours=8))
+        now = datetime.now(tz_bj)
+        current_minutes = now.hour * 60 + now.minute
+        start_minutes = start_hour * 60 + start_minute
+        end_minutes = end_hour * 60 + end_minute
+
+        if start_minutes < end_minutes:
+            return start_minutes <= current_minutes <= end_minutes
+        else: # Over midnight
+            return current_minutes >= start_minutes or current_minutes <= end_minutes
+
+    def _get_available_templates(self) -> list[str]:
+        templates_dir = Path(__file__).parent / "templates"
+        if not templates_dir.exists():
+            return []
+        return [f.stem for f in templates_dir.glob("*.html")]
+
     def _get_image_template_name(self) -> str:
-        template_name = (
-            str(self.config.get("image_template") or self._DEFAULT_IMAGE_TEMPLATE)
+        light_template = (
+            str(self.config.get("light_template") or self.config.get("image_template") or self._DEFAULT_IMAGE_TEMPLATE)
             .strip()
             .lower()
         )
-        if template_name in self._HELP_MENU_IMAGE_TEMPLATES:
-            return template_name
-        logger.warning(
-            "[helpmenu] 未知 image_template=%s，将回退为 %s。",
-            template_name,
-            self._DEFAULT_IMAGE_TEMPLATE,
-        )
-        return self._DEFAULT_IMAGE_TEMPLATE
+        
+        available = self._get_available_templates()
+        
+        template_name = light_template
+        if light_template not in available:
+            logger.warning(f"[helpmenu] 未知 light_template={light_template}，将回退为 {self._DEFAULT_IMAGE_TEMPLATE}。")
+            template_name = self._DEFAULT_IMAGE_TEMPLATE
+            
+        if self._is_dark_time():
+            dark_template = str(self.config.get("dark_template") or "").strip().lower()
+            if not dark_template:
+                dark_template = f"{template_name}_dark"
+                
+            if dark_template in available:
+                template_name = dark_template
+            else:
+                logger.warning(f"[helpmenu] 深色模板 {dark_template} 不存在，降级使用浅色模板。")
+                
+        return template_name
 
     def _get_image_template(self) -> str:
-        return self._HELP_MENU_IMAGE_TEMPLATES[self._get_image_template_name()]
+        template_name = self._get_image_template_name()
+        template_file = Path(__file__).parent / "templates" / f"{template_name}.html"
+        try:
+            return template_file.read_text(encoding="utf-8")
+        except Exception as e:
+            logger.error(f"[helpmenu] 读取模板文件 {template_file} 失败: {e}")
+            return "模板读取失败" 
 
     async def _render_help_page_as_image(
         self,
@@ -841,10 +723,11 @@ class MyPlugin(Star):
     def _build_image_pages(
         self,
         items: list[CommandDocItem],
-        page_size: int = 14,
+        page_size: int = 42,
+        card_size: int = 14,
     ) -> list[tuple[dict[str, object], ...]]:
-        if page_size <= 0:
-            raise ValueError("image page_size must be greater than 0")
+        if page_size <= 0 or card_size <= 0:
+            raise ValueError("image page_size and card_size must be greater than 0")
         if not items:
             return []
 
@@ -873,7 +756,7 @@ class MyPlugin(Star):
                         "aliases": ", ".join(entry.aliases),
                     }
                     command_units = 1 + (1 if entry.aliases else 0) + len(args)
-                    if card_commands and card_units + command_units > page_size:
+                    if card_commands and card_units + command_units > card_size:
                         break
                     card_commands.append(command_data)
                     card_units += command_units
