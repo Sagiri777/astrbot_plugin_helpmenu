@@ -139,11 +139,15 @@ class MyPlugin(Star):
 
     def _get_output_mode(self) -> str:
         mode = str(self.config.get("output_mode") or self._OUTPUT_TEXT).strip().lower()
+        self._log_debug(f"配置的输出模式: {mode}")
+
         if mode in {self._OUTPUT_TEXT, self._OUTPUT_IMAGE}:
+            self._log_debug(f"最终输出模式: {mode}")
             return mode
         logger.warning(
             f"[helpmenu] 未知 output_mode={mode}，将回退为 {self._OUTPUT_TEXT} 模式。"
         )
+        self._log_debug(f"回退到默认输出模式: {self._OUTPUT_TEXT}")
         return self._OUTPUT_TEXT
 
     def _is_dark_time(self) -> bool:
@@ -187,6 +191,8 @@ class MyPlugin(Star):
         )
 
         available = self._get_available_templates()
+        self._log_debug(f"可用的模板列表: {available}")
+        self._log_debug(f"配置的浅色模板: {light_template}")
 
         template_name = light_template
         if light_template not in available:
@@ -197,25 +203,41 @@ class MyPlugin(Star):
 
         if self._is_dark_time():
             dark_template = str(self.config.get("dark_template") or "").strip().lower()
+            self._log_debug("当前为深色模式时间段")
+            self._log_debug(
+                f"配置的深色模板: {dark_template if dark_template else '未配置'}"
+            )
+
             if not dark_template:
                 dark_template = f"{template_name}_dark"
 
             if dark_template in available:
                 template_name = dark_template
+                self._log_debug(f"使用深色模板: {template_name}")
             else:
                 logger.warning(
                     f"[helpmenu] 深色模板 {dark_template} 不存在，降级使用浅色模板。"
                 )
+                self._log_debug(
+                    f"深色模板 {dark_template} 不在可用列表中，继续使用: {template_name}"
+                )
 
+        self._log_debug(f"最终使用的模板名称: {template_name}")
         return template_name
 
     def _get_image_template(self) -> str:
         template_name = self._get_image_template_name()
         template_file = Path(__file__).parent / "templates" / f"{template_name}.html"
+        self._log_debug(f"模板文件路径: {template_file}")
+        self._log_debug(f"模板文件是否存在: {template_file.exists()}")
+
         try:
-            return template_file.read_text(encoding="utf-8")
+            content = template_file.read_text(encoding="utf-8")
+            self._log_debug(f"成功读取模板文件，内容长度: {len(content)} 字符")
+            return content
         except Exception as e:
             logger.error(f"[helpmenu] 读取模板文件 {template_file} 失败: {e}")
+            self._log_debug(f"模板文件读取异常: {type(e).__name__}: {e}")
             return "模板读取失败"
 
     async def _render_help_page_as_image(
@@ -235,11 +257,38 @@ class MyPlugin(Star):
             "warning": warning.strip(),
             "cards": cards,
         }
-        return await self.html_render(
-            self._get_image_template(),
-            data,
-            options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
+
+        # Debug logging for image rendering
+        self._log_debug(f"开始渲染帮助菜单图片: 第 {page}/{total_pages} 页")
+        self._log_debug(f"卡片数量: {len(cards)}")
+        self._log_debug(
+            f"渲染选项: {json.dumps(self._DEFAULT_IMAGE_RENDER_OPTIONS, ensure_ascii=False)}"
         )
+
+        template_name = self._get_image_template_name()
+        self._log_debug(f"使用的模板: {template_name}")
+
+        try:
+            template_content = self._get_image_template()
+            self._log_debug(f"模板内容长度: {len(template_content)} 字符")
+
+            result = await self.html_render(
+                template_content,
+                data,
+                return_url=True,
+                options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
+            )
+
+            self._log_debug(f"图片渲染成功, 返回类型: {type(result).__name__}")
+            if isinstance(result, str):
+                self._log_debug(f"图片URL/路径长度: {len(result)} 字符")
+            return result
+        except Exception as exc:
+            self._log_debug(f"图片渲染失败: {type(exc).__name__}: {exc}")
+            self._log_debug(f"渲染数据详情 - subtitle: {data.get('subtitle')}")
+            self._log_debug(f"渲染数据详情 - warning: {data.get('warning')}")
+            self._log_debug(f"渲染数据详情 - cards 数量: {len(cards)}")
+            raise
 
     def _extract_arg_lines(self, description: str) -> tuple[str, list[dict[str, str]]]:
         matches = list(
@@ -298,6 +347,11 @@ class MyPlugin(Star):
         return int(datetime.now().timestamp()) >= self._token_expire_at - 30
 
     async def initialize(self):
+        # Log default image render options on initialization
+        self._log_debug(
+            f"默认图片渲染选项: {json.dumps(self._DEFAULT_IMAGE_RENDER_OPTIONS, ensure_ascii=False)}"
+        )
+
         if self._get_fetch_mode() == self._MODE_API:
             await self._get_http_session()
         ok, message = await self._refresh_help_cache(force=True)
@@ -568,7 +622,9 @@ class MyPlugin(Star):
         dedup: set[str] = set()
         # Type ignore: context is actually Context instance with get_all_stars method
         all_stars_metadata = [
-            star for star in self.context.get_all_stars() if star.activated  # type: ignore[attr-defined]
+            star
+            for star in self.context.get_all_stars()
+            if star.activated  # type: ignore[attr-defined]
         ]
         if not all_stars_metadata:
             return collected
@@ -1057,7 +1113,13 @@ class MyPlugin(Star):
     @filter.command("helpMenu")
     async def helpmenu(self, event: AstrMessageEvent):
         """展示支持翻页的帮助菜单。"""
+        self._log_debug("收到 helpMenu 命令请求")
+        self._log_debug(
+            f"是否为管理员私聊: {event.is_admin() and event.is_private_chat()}"
+        )
+
         if not self._help_cache.pages:
+            self._log_debug("帮助缓存为空，尝试刷新")
             ok, message = await self._refresh_help_cache()
             if not ok:
                 if self._get_fetch_mode() == self._MODE_API:
@@ -1070,23 +1132,38 @@ class MyPlugin(Star):
 
         session_id = event.get_session_id()
         arg = self._parse_help_arg(event.message_str)
+        self._log_debug(
+            f"会话ID: {session_id[:32] if len(session_id) > 32 else session_id}"
+        )
+        self._log_debug(f"命令参数: {arg if arg else '(无)'}")
+
         snapshot = self._resolve_snapshot_for_event(event)
         if not snapshot.pages:
             snapshot = self._help_cache
         output_mode = self._get_output_mode()
+        self._log_debug(f"输出模式: {output_mode}")
+        self._log_debug(
+            f"快照总页数: {len(snapshot.pages)}, 图片页数: {len(snapshot.image_pages)}"
+        )
+
         page_bucket = snapshot.pages
         image_page_bucket = snapshot.image_pages
         paging_session_id = session_id
         if output_mode == self._OUTPUT_IMAGE and image_page_bucket:
             page_bucket = image_page_bucket
             paging_session_id = f"{session_id}:image"
+            self._log_debug("使用图片分页模式")
 
         page, warning = await self._resolve_and_set_session_page(
             arg, paging_session_id, len(page_bucket)
         )
         page = max(1, min(page, len(page_bucket)))
+        self._log_debug(f"解析后的页码: {page}")
 
         if output_mode == self._OUTPUT_IMAGE and image_page_bucket:
+            self._log_debug("输出模式: 图片模式")
+            self._log_debug(f"图片页面桶大小: {len(image_page_bucket)}")
+            self._log_debug(f"当前页码: {page}")
             try:
                 image_url = await self._render_help_page_as_image(
                     image_page_bucket[page - 1],
@@ -1095,9 +1172,14 @@ class MyPlugin(Star):
                     len(image_page_bucket),
                     snapshot,
                 )
+                self._log_debug(
+                    f"图片渲染完成，URL: {image_url[:100] if len(image_url) > 100 else image_url}"
+                )
                 yield event.image_result(image_url)
                 return
             except Exception as exc:  # noqa: BLE001
+                self._log_debug(f"帮助菜单图片渲染异常类型: {type(exc).__name__}")
+                self._log_debug(f"帮助菜单图片渲染异常详情: {exc}")
                 logger.warning(f"[helpmenu] 帮助菜单图片渲染失败，回退文本输出：{exc}")
 
         text = snapshot.pages[page - 1]
