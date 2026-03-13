@@ -62,11 +62,11 @@ class MyPlugin(Star):
     _DEFAULT_IMAGE_TEMPLATE = "classic"
     _DEFAULT_IMAGE_RENDER_OPTIONS = {
         "type": "png",
-        "full_page": False,
+        "full_page": True,
+        "omit_background": True,
         "animations": "disabled",
         "caret": "hide",
         "scale": "css",
-        "clip": {"x": 0, "y": 0},
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -566,8 +566,9 @@ class MyPlugin(Star):
     ) -> list[CommandDocItem]:
         collected: list[CommandDocItem] = []
         dedup: set[str] = set()
+        # Type ignore: context is actually Context instance with get_all_stars method
         all_stars_metadata = [
-            star for star in self.context.get_all_stars() if star.activated
+            star for star in self.context.get_all_stars() if star.activated  # type: ignore[attr-defined]
         ]
         if not all_stars_metadata:
             return collected
@@ -1025,14 +1026,14 @@ class MyPlugin(Star):
             return page, warning
 
     @filter.on_plugin_loaded()
-    async def on_plugin_loaded(self, event, metadata):
+    async def on_plugin_loaded(self, metadata):
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "加载",
         )
 
     @filter.on_plugin_unloaded()
-    async def on_plugin_unloaded(self, event, metadata):
+    async def on_plugin_unloaded(self, metadata):
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "卸载",
