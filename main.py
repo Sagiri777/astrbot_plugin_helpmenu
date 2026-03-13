@@ -5,7 +5,7 @@ import json
 import re
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import aiohttp
@@ -62,10 +62,11 @@ class MyPlugin(Star):
     _DEFAULT_IMAGE_TEMPLATE = "classic"
     _DEFAULT_IMAGE_RENDER_OPTIONS = {
         "type": "png",
-        "full_page": True,
+        "full_page": False,
         "animations": "disabled",
         "caret": "hide",
         "scale": "css",
+        "clip": {"x": 0, "y": 0},
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -148,7 +149,7 @@ class MyPlugin(Star):
     def _is_dark_time(self) -> bool:
         start_time_str = str(self.config.get("dark_time_start", "18:00")).strip()
         end_time_str = str(self.config.get("dark_time_end", "06:00")).strip()
-        
+
         try:
             start_hour, start_minute = map(int, start_time_str.split(":"))
             end_hour, end_minute = map(int, end_time_str.split(":"))
@@ -165,7 +166,7 @@ class MyPlugin(Star):
 
         if start_minutes < end_minutes:
             return start_minutes <= current_minutes <= end_minutes
-        else: # Over midnight
+        else:  # Over midnight
             return current_minutes >= start_minutes or current_minutes <= end_minutes
 
     def _get_available_templates(self) -> list[str]:
@@ -176,28 +177,36 @@ class MyPlugin(Star):
 
     def _get_image_template_name(self) -> str:
         light_template = (
-            str(self.config.get("light_template") or self.config.get("image_template") or self._DEFAULT_IMAGE_TEMPLATE)
+            str(
+                self.config.get("light_template")
+                or self.config.get("image_template")
+                or self._DEFAULT_IMAGE_TEMPLATE
+            )
             .strip()
             .lower()
         )
-        
+
         available = self._get_available_templates()
-        
+
         template_name = light_template
         if light_template not in available:
-            logger.warning(f"[helpmenu] 未知 light_template={light_template}，将回退为 {self._DEFAULT_IMAGE_TEMPLATE}。")
+            logger.warning(
+                f"[helpmenu] 未知 light_template={light_template}，将回退为 {self._DEFAULT_IMAGE_TEMPLATE}。"
+            )
             template_name = self._DEFAULT_IMAGE_TEMPLATE
-            
+
         if self._is_dark_time():
             dark_template = str(self.config.get("dark_template") or "").strip().lower()
             if not dark_template:
                 dark_template = f"{template_name}_dark"
-                
+
             if dark_template in available:
                 template_name = dark_template
             else:
-                logger.warning(f"[helpmenu] 深色模板 {dark_template} 不存在，降级使用浅色模板。")
-                
+                logger.warning(
+                    f"[helpmenu] 深色模板 {dark_template} 不存在，降级使用浅色模板。"
+                )
+
         return template_name
 
     def _get_image_template(self) -> str:
@@ -207,7 +216,7 @@ class MyPlugin(Star):
             return template_file.read_text(encoding="utf-8")
         except Exception as e:
             logger.error(f"[helpmenu] 读取模板文件 {template_file} 失败: {e}")
-            return "模板读取失败" 
+            return "模板读取失败"
 
     async def _render_help_page_as_image(
         self,
@@ -352,7 +361,9 @@ class MyPlugin(Star):
         }
         return json.dumps(safe_payload, ensure_ascii=False)
 
-    async def _read_json_response(self, response: aiohttp.ClientResponse, stage: str) -> object:
+    async def _read_json_response(
+        self, response: aiohttp.ClientResponse, stage: str
+    ) -> object:
         try:
             return await response.json(content_type=None)
         except json.JSONDecodeError as exc:
@@ -361,7 +372,9 @@ class MyPlugin(Star):
                 f"{stage}返回了无效 JSON（HTTP {response.status}，响应片段: {body_preview or '空'}）"
             ) from exc
 
-    def _raise_for_http_status(self, response: aiohttp.ClientResponse, stage: str) -> None:
+    def _raise_for_http_status(
+        self, response: aiohttp.ClientResponse, stage: str
+    ) -> None:
         if 200 <= response.status < 300:
             return
         if stage == "登录" and response.status in {401, 403}:
@@ -586,8 +599,7 @@ class MyPlugin(Star):
                     continue
 
                 description = (
-                    re.sub(r"\s+", " ", str(handler_desc or "").strip())
-                    or "暂无说明。"
+                    re.sub(r"\s+", " ", str(handler_desc or "").strip()) or "暂无说明。"
                 )
                 permission = "everyone"
                 for event_filter in event_filters:
@@ -685,7 +697,10 @@ class MyPlugin(Star):
                     entry = plugin_items[pointer]
                     _, args = self._extract_arg_lines(entry.description)
                     estimated_units = 1 + (1 if entry.aliases else 0) + len(args)
-                    if current_units + estimated_units > page_size and current_units > 1:
+                    if (
+                        current_units + estimated_units > page_size
+                        and current_units > 1
+                    ):
                         break
                     current_page.append(f"/{entry.command} - {entry.description}")
                     current_units += 1
@@ -718,7 +733,6 @@ class MyPlugin(Star):
             ]
             pages.append("\n".join(lines).strip())
         return pages
-
 
     def _build_image_pages(
         self,
@@ -880,7 +894,10 @@ class MyPlugin(Star):
                 return False, f"帮助菜单刷新失败：无法连接服务器（{exc}）。"
             except HttpStatusError as exc:
                 self._log_debug(f"刷新失败阶段: {exc.stage} status={exc.status}")
-                return False, f"帮助菜单刷新失败：{exc.stage}接口异常（HTTP {exc.status}）。"
+                return (
+                    False,
+                    f"帮助菜单刷新失败：{exc.stage}接口异常（HTTP {exc.status}）。",
+                )
             except aiohttp.ClientError as exc:
                 self._log_debug(f"刷新失败阶段: client_error ({exc})")
                 return False, f"帮助菜单刷新失败：网络请求异常（{exc}）。"
@@ -923,11 +940,15 @@ class MyPlugin(Star):
 
         self._plugin_change_pending = True
         if self._plugin_refresh_task and not self._plugin_refresh_task.done():
-            self._log_debug(f"检测到插件{action}：{plugin_name}，已并入待执行刷新批次。")
+            self._log_debug(
+                f"检测到插件{action}：{plugin_name}，已并入待执行刷新批次。"
+            )
             return
 
         self._log_debug(f"检测到插件{action}：{plugin_name}，将在短暂去抖后自动刷新。")
-        self._plugin_refresh_task = asyncio.create_task(self._run_debounced_auto_refresh())
+        self._plugin_refresh_task = asyncio.create_task(
+            self._run_debounced_auto_refresh()
+        )
 
     def _parse_help_arg(self, message: str) -> str:
         normalized = re.sub(r"\s+", " ", (message or "").strip())
@@ -1067,7 +1088,11 @@ class MyPlugin(Star):
         if output_mode == self._OUTPUT_IMAGE and image_page_bucket:
             try:
                 image_url = await self._render_help_page_as_image(
-                    image_page_bucket[page - 1], warning, page, len(image_page_bucket), snapshot
+                    image_page_bucket[page - 1],
+                    warning,
+                    page,
+                    len(image_page_bucket),
+                    snapshot,
                 )
                 yield event.image_result(image_url)
                 return
