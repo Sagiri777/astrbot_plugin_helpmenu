@@ -275,7 +275,6 @@ class MyPlugin(Star):
             result = await self.html_render(
                 template_content,
                 data,
-                return_url=True,
                 options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
             )
 
