@@ -41,11 +41,11 @@ class MyPlugin(Star):
     _DEFAULT_IMAGE_TEMPLATE = "classic"
     _DEFAULT_IMAGE_RENDER_OPTIONS = {
         "type": "png",
-        "full_page": True,
+        "full_page": False,
         "omit_background": True,
         "animations": "disabled",
         "caret": "hide",
-        "scale": "css",
+        "scale": 1.0,
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -650,6 +650,7 @@ class MyPlugin(Star):
             self._log_debug(f"图片页面桶大小: {len(image_page_bucket)}")
             self._log_debug(f"当前页码: {page}")
             try:
+                self._log_debug("准备调用 render_help_page_as_image...")
                 image_url = await render_help_page_as_image(
                     self.html_render,
                     self._templates_dir,
@@ -670,12 +671,20 @@ class MyPlugin(Star):
                 self._log_debug(
                     f"图片渲染完成，URL: {image_url[:100] if len(image_url) > 100 else image_url}"
                 )
+                if not image_url:
+                    raise ValueError("html_render 返回了空的图片 URL/路径")
                 yield event.image_result(image_url)
                 return
             except Exception as exc:  # noqa: BLE001
                 self._log_debug(f"帮助菜单图片渲染异常类型: {type(exc).__name__}")
                 self._log_debug(f"帮助菜单图片渲染异常详情: {exc}")
+                import traceback
+                self._log_debug(f"异常堆栈: {traceback.format_exc()}")
                 logger.warning(f"[helpmenu] 帮助菜单图片渲染失败，回退文本输出：{exc}")
+                if self._is_debug_enabled():
+                    yield event.plain_result(f"图片渲染失败: {exc}\n\n已回退到文本模式。")
+                else:
+                    yield event.plain_result("图片渲染失败，已回退到文本模式。")
 
         text = snapshot.pages[page - 1]
         if warning:

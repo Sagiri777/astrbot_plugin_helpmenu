@@ -3,16 +3,22 @@
 <head>
 <meta charset="utf-8">
 <style>
-body {
+* {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+html, body {
   background: transparent;
+  width: fit-content;
+  height: fit-content;
+  display: inline-block;
 }
 </style>
 </head>
 <body>
-<div style="width:fit-content;min-width:560px;max-width:920px;background:rgba(255,255,255,0.7);border:1px solid rgba(130,165,215,0.4);border-radius:20px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(45,80,135,0.12);backdrop-filter:blur(15px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
-  <div style="font-size:22px;color:#1a3c61;font-weight:700;text-align:center;margin-bottom:10px;letter-spacing:1px;">帮助菜单</div>
+<div style="width:fit-content;min-width:560px;max-width:920px;background:linear-gradient(135deg, rgba(255,255,255,0.75) 0%, rgba(248,250,255,0.6) 100%);border:1px solid rgba(130,165,215,0.3);border-radius:20px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(45,80,135,0.12), inset 0 0 0 1px rgba(255,255,255,0.8);backdrop-filter:blur(15px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="font-size:22px;color:#4c1d95;font-weight:700;text-align:center;margin-bottom:10px;letter-spacing:1px;background:linear-gradient(135deg, #5b21b6, #7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent;">帮助菜单</div>
   <div style="font-size:13px;color:#455972;line-height:1.5;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
   <div style="margin-top:10px;padding:9px 11px;background:rgba(255,241,220,0.66);border:1px solid rgba(244,193,120,0.58);border-radius:11px;font-size:12px;color:#7a4a00;backdrop-filter:blur(8px);">
@@ -21,8 +27,8 @@ body {
   {% endif %}
   <div style="margin-top:12px;column-count:3;column-gap:10px;">
     {% for card in cards %}
-    <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(193,203,247,0.64);border-radius:14px;background:linear-gradient(168deg,rgba(255,255,255,0.7) 0%,rgba(239,242,255,0.54) 100%);box-shadow:0 8px 20px rgba(93,103,164,0.1);backdrop-filter:blur(10px);">
-      <div style="font-size:15px;color:#313a76;font-weight:700;line-height:1.32;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
+    <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(167,139,250,0.5);border-radius:14px;background:linear-gradient(168deg,rgba(255,255,255,0.7) 0%,rgba(245,243,255,0.54) 100%);box-shadow:0 8px 20px rgba(93,103,164,0.1), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(10px);">
+      <div style="font-size:15px;color:#4c1d95;font-weight:700;line-height:1.32;word-break:break-word;overflow-wrap:anywhere;border-left:3px solid #8b5cf6;padding-left:8px;">{{ card.plugin }}</div>
       {% if card.continued %}
       <div style="font-size:11px;color:#636ea0;margin-top:2px;">本页续接</div>
       {% endif %}

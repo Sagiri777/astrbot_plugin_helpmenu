@@ -6,11 +6,11 @@ from astrbot.api import logger
 
 DEFAULT_IMAGE_RENDER_OPTIONS = {
     "type": "png",
-    "full_page": True,
+    "full_page": False,
     "omit_background": True,
     "animations": "disabled",
     "caret": "hide",
-    "scale": "css",
+    "scale": 1.0,
 }
 
 DEFAULT_IMAGE_TEMPLATE = "classic"
@@ -203,16 +203,27 @@ async def render_help_page_as_image(
         )
         log_debug(f"模板内容长度: {len(template_content)} 字符")
 
+        # 调用 html_render 生成图片
+        log_debug("调用 html_render 开始渲染...")
         result = await html_render_func(
             template_content,
             data,
-            options=DEFAULT_IMAGE_RENDER_OPTIONS,
+            DEFAULT_IMAGE_RENDER_OPTIONS,
         )
 
         log_debug(f"图片渲染成功, 返回类型: {type(result).__name__}")
         if isinstance(result, str):
             log_debug(f"图片URL/路径长度: {len(result)} 字符")
-        return result
+            if not result:
+                raise ValueError("html_render 返回了空字符串")
+            return result
+        elif result is None:
+            raise ValueError("html_render 返回了 None")
+        else:
+            # 如果返回的是其他类型，尝试转换为字符串
+            result_str = str(result)
+            log_debug(f"将返回值转换为字符串，长度: {len(result_str)} 字符")
+            return result_str
     except Exception as exc:
         log_debug(f"图片渲染失败: {type(exc).__name__}: {exc}")
         log_debug(f"渲染数据详情 - subtitle: {data.get('subtitle')}")
