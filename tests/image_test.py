@@ -122,6 +122,15 @@ async def render_with_fallback_t2i(
         },
     }
     
+    # 调试：打印请求数据的关键信息
+    import json
+    _log(f"请求数据 - tmpl 长度: {len(template_content)} 字符")
+    _log(f"请求数据 - tmpldata keys: {list(tmpl_data.keys())}")
+    _log(f"请求数据 - tmpldata subtitle: {tmpl_data.get('subtitle', '')[:50]}")
+    _log(f"请求数据 - tmpldata cards 数量: {len(tmpl_data.get('cards', []))}")
+    _log(f"请求数据 - options: {post_data['options']}")
+    _log(f"请求数据 - json 序列化后大小: {len(json.dumps(post_data))} 字节")
+    
     timeout = aiohttp.ClientTimeout(total=60)
     headers = {
         "Accept-Encoding": "gzip, deflate",
@@ -140,6 +149,12 @@ async def render_with_fallback_t2i(
             
             if resp.status != 200:
                 text = await resp.text()
+                _log(f"备用服务错误详情 (HTTP {resp.status}): {text[:500]}")
+                try:
+                    error_json = await resp.json()
+                    _log(f"备用服务错误JSON: {error_json}")
+                except:
+                    pass
                 raise RuntimeError(f"备用服务返回错误 (HTTP {resp.status}): {text[:200]}")
             
             data = await resp.json()
@@ -234,6 +249,6 @@ async def render_test_image(
         except Exception as fallback_exc:
             _log(f"备用文转图也失败: {type(fallback_exc).__name__}: {fallback_exc}")
             # 两次都失败了，抛出组合错误信息
-            raise RuntimeError(
-                f"系统文转图失败: {primary_exc}；备用服务也失败: {fallback_exc}"
-            ) from fallback_exc
+            error_msg = f"系统文转图失败: {primary_exc}；备用服务也失败: {fallback_exc}"
+            _log(f"最终错误消息: {error_msg}")
+            raise RuntimeError(error_msg) from fallback_exc
