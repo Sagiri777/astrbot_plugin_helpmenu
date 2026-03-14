@@ -603,17 +603,26 @@ class MyPlugin(Star):
 
     @helpmenu_group.command("imageTest")
     async def helpmenu_image_test(self, event: AstrMessageEvent):
-        """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。"""
+        """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。
+        
+        如果系统文转图失败，会自动切换到备用文转图服务 https://t2i.soulter.top/text2img
+        """
         self._log_debug("收到 helpMenu imageTest 命令请求")
 
         try:
             # 调用测试模块渲染测试图片
-            image_url = await render_test_image(
+            image_url, message = await render_test_image(
                 html_render_func=self.html_render,
                 templates_dir=self._templates_dir,
                 template_name="classic.html",
                 log_debug_callback=self._log_debug,
+                use_fallback_on_failure=True,
             )
+
+            # 如果有备用服务提示，先发送提示
+            if message:
+                self._log_debug(f"发送提示信息: {message}")
+                yield event.plain_result(message)
 
             # 发送图片给用户
             yield event.image_result(image_url)
