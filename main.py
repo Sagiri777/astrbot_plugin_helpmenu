@@ -41,10 +41,11 @@ class MyPlugin(Star):
     _DEFAULT_IMAGE_TEMPLATE = "classic"
     _DEFAULT_IMAGE_RENDER_OPTIONS = {
         "type": "png",
-        "full_page": True,
+        "full_page": False,
+        "omit_background": True,
         "animations": "disabled",
         "caret": "hide",
-        "scale": "css",
+        "scale": 1.0,
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -604,98 +605,15 @@ class MyPlugin(Star):
         self._log_debug("收到 helpMenu imageTest 命令请求")
 
         try:
-            # 直接从内置模板渲染测试图片
-            from .image_renderer import get_image_template
-            from .page_builder import build_image_pages
-            from .tests.image_test import render_with_fallback_t2i
+            from .tests.image_test import run_image_test_command
 
-            # 创建示例数据
-            sample_items = [
-                CommandDocItem(
-                    plugin_name="插件1",
-                    command="hello",
-                    description="你好呀",
-                    aliases=[],
-                    permission="everyone",
-                ),
-                CommandDocItem(
-                    plugin_name="插件1",
-                    command="search",
-                    description="搜索内容",
-                    aliases=[],
-                    permission="everyone",
-                ),
-                CommandDocItem(
-                    plugin_name="插件2",
-                    command="status",
-                    description="查看状态",
-                    aliases=[],
-                    permission="everyone",
-                ),
-            ]
-
-            image_pages = build_image_pages(sample_items)
-            if not image_pages:
-                yield event.plain_result("无法生成测试图片：无可用命令")
-                return
-
-            template_name = (
-                self.config.get("light_template")
-                or self.config.get("image_template")
-                or "classic"
-            )
-
-            self._log_debug(f"使用模板: {template_name}")
-            template_content = get_image_template(
+            image_url, fallback_message = await run_image_test_command(
+                self.html_render,
                 self._templates_dir,
-                template_name,
-                self.config.get("light_template"),
-                self.config.get("dark_template"),
-                str(self.config.get("dark_time_start", "18:00")),
-                str(self.config.get("dark_time_end", "06:00")),
+                self.config,
                 self._is_debug_enabled(),
+                self._log_debug,
             )
-
-            # 准备渲染数据
-            render_data = {
-                "subtitle": "文转图测试 | 第 1/1 页 | 命令数: 3 | 文档更新时间: 2026-03-14",
-                "warning": "",
-                "cards": image_pages[0],
-            }
-
-            self._log_debug("调用 html_render 渲染测试图片...")
-            image_url = None
-            fallback_message = ""
-
-            try:
-                image_url = await self.html_render(
-                    template_content,
-                    render_data,
-                    options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
-                )
-
-                if not image_url:
-                    raise ValueError("html_render 返回了空的图片 URL")
-
-                self._log_debug(
-                    f"系统文转图成功: {image_url[:100] if len(image_url) > 100 else image_url}"
-                )
-
-            except Exception as primary_exc:
-                self._log_debug(
-                    f"系统文转图失败: {type(primary_exc).__name__}: {primary_exc}"
-                )
-                self._log_debug("尝试使用备用文转图服务...")
-
-                # 备用服务调用
-                fallback_url, fallback_msg = await render_with_fallback_t2i(
-                    template_content,
-                    render_data,
-                    self._log_debug,
-                )
-                image_url = fallback_url
-                fallback_message = fallback_msg
-                self._log_debug(f"备用服务成功: {fallback_msg}")
 
             if fallback_message:
                 yield event.plain_result(fallback_message)
