@@ -440,14 +440,19 @@ class MyPlugin(Star):
                     return False, f"帮助菜单刷新失败：网络请求异常（{exc}）。"
                 if isinstance(exc, HttpStatusError):
                     status_error: HttpStatusError = exc
-                    self._log_debug(f"刷新失败阶段: {status_error.stage} status={status_error.status}")
+                    self._log_debug(
+                        f"刷新失败阶段: {status_error.stage} status={status_error.status}"
+                    )
                     return (
                         False,
                         f"帮助菜单刷新失败：{status_error.stage}接口异常（HTTP {status_error.status}）。",
                     )
                 if isinstance(exc, PermissionError):
                     self._log_debug(f"刷新失败阶段: permission ({exc})")
-                    return False, "帮助菜单刷新失败：登录状态失效，请检查账号配置后重试。"
+                    return (
+                        False,
+                        "帮助菜单刷新失败：登录状态失效，请检查账号配置后重试。",
+                    )
                 if isinstance(exc, ValueError):
                     self._log_debug(f"刷新失败阶段: value_error ({exc})")
                     return False, f"帮助菜单刷新失败：{exc}"
@@ -604,7 +609,7 @@ class MyPlugin(Star):
     @helpmenu_group.command("imageTest")
     async def helpmenu_image_test(self, event: AstrMessageEvent):
         """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。
-        
+
         如果系统文转图失败，会自动切换到备用文转图服务 https://t2i.soulter.top/text2img
         """
         self._log_debug("收到 helpMenu imageTest 命令请求")
@@ -634,6 +639,7 @@ class MyPlugin(Star):
         except Exception as exc:
             self._log_debug(f"文转图测试失败: {type(exc).__name__}: {exc}")
             import traceback
+
             self._log_debug(f"异常堆栈: {traceback.format_exc()}")
             yield event.plain_result(f"文转图测试失败: {exc}")
 
@@ -721,10 +727,13 @@ class MyPlugin(Star):
                 self._log_debug(f"帮助菜单图片渲染异常类型: {type(exc).__name__}")
                 self._log_debug(f"帮助菜单图片渲染异常详情: {exc}")
                 import traceback
+
                 self._log_debug(f"异常堆栈: {traceback.format_exc()}")
                 logger.warning(f"[helpmenu] 帮助菜单图片渲染失败，回退文本输出：{exc}")
                 if self._is_debug_enabled():
-                    yield event.plain_result(f"图片渲染失败: {exc}\n\n已回退到文本模式。")
+                    yield event.plain_result(
+                        f"图片渲染失败: {exc}\n\n已回退到文本模式。"
+                    )
                 else:
                     yield event.plain_result("图片渲染失败，已回退到文本模式。")
 

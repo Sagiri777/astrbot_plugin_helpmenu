@@ -2,9 +2,10 @@ import asyncio
 import base64
 import hashlib
 import json
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import aiohttp
 
@@ -237,7 +238,9 @@ class ApiClient:
             self._state.auth_token = token
             self._state.token_expire_at = self._decode_token_expire_at(token)
             if self._state.token_expire_at > 0:
-                self._log_debug(f"登录成功，Token 过期时间戳: {self._state.token_expire_at}")
+                self._log_debug(
+                    f"登录成功，Token 过期时间戳: {self._state.token_expire_at}"
+                )
             else:
                 self._log_debug("登录成功，未解析到 Token 过期时间。")
             return token
@@ -341,7 +344,9 @@ class ApiClient:
                         plugin_name = self._clean_text(
                             item.get("plugin_display_name"), ""
                         ) or self._clean_text(item.get("plugin"), "未知插件")
-                        description = self._clean_text(item.get("description"), "暂无说明。")
+                        description = self._clean_text(
+                            item.get("description"), "暂无说明。"
+                        )
                         raw_aliases = item.get("aliases", [])
                         aliases: list[str] = []
                         if isinstance(raw_aliases, list):

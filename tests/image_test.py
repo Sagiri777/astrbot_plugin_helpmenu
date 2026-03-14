@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 
 import aiohttp
+from astrbot.core.utils.http_ssl import build_tls_connector
 
 
 # 备用文转图服务端点
@@ -122,8 +123,16 @@ async def render_with_fallback_t2i(
     }
     
     timeout = aiohttp.ClientTimeout(total=60)
+    headers = {
+        "Accept-Encoding": "gzip, deflate",
+    }
     
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with aiohttp.ClientSession(
+        timeout=timeout,
+        trust_env=True,
+        connector=build_tls_connector(),
+        headers=headers,
+    ) as session:
         # 请求图片生成
         _log("发送图片生成请求到备用服务...")
         async with session.post(f"{FALLBACK_T2I_ENDPOINT}/generate", json=post_data) as resp:
