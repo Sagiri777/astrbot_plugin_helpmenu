@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+import importlib
+import importlib.util
+from pathlib import Path
+from urllib.parse import urlparse
+
+from astrbot.api import logger
+
+
+def _resolve_local_path(image_ref: str) -> Path | None:
+    if not image_ref:
+        return None
+
+    parsed = urlparse(image_ref)
+    if parsed.scheme in {"http", "https"}:
+        return None
+
+    if parsed.scheme == "file":
+        return Path(parsed.path)
+
+    return Path(image_ref)
+
+
+def _is_near_white(r: int, g: int, b: int, threshold: int) -> bool:
+    return r >= threshold and g >= threshold and b >= threshold
+
+
+def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
+    """Crop near-white border area from a rendered help image.
+
+    Returns the original image reference when post-processing is not possible.
+    """
+
+    if importlib.util.find_spec("PIL") is None:
+        logger.warning("[helpmenu] 图片后处理已启用，但未安装 Pillow，跳过裁剪。")
+        return image_ref
+
+    image_path = _resolve_local_path(image_ref)
+    if image_path is None or not image_path.exists() or not image_path.is_file():
+        return image_ref
+
+    pil_image_module = importlib.import_module("PIL.Image")
+    with pil_image_module.open(image_path) as image:
+        rgb_image = image.convert("RGB")
+        width, height = rgb_image.size
+        pixels = rgb_image.load()
+
+        left = width
+        top = height
+        right = -1
+        bottom = -1
+
+        for y in range(height):
+            for x in range(width):
+                r, g, b = pixels[x, y]
+                if _is_near_white(r, g, b, threshold):
+                    continue
+                if x < left:
+                    left = x
+                if y < top:
+                    top = y
+                if x > right:
+                    right = x
+                if y > bottom:
+                    bottom = y
+
+        if right < left or bottom < top:
+            return image_ref
+
+        cropped = image.crop((left, top, right + 1, bottom + 1))
+        cropped.save(image_path)
+
+    return image_ref
+

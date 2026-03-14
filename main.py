@@ -16,6 +16,7 @@ from astrbot.core.star.filter.permission import PermissionType, PermissionTypeFi
 from astrbot.core.star.star_handler import star_handlers_registry
 
 from .api_client import ApiClient, HttpStatusError
+from .image_post_processor import crop_outer_white_background
 from .image_renderer import render_help_page_as_image
 from .page_builder import CommandDocItem, build_image_pages, build_pages
 
@@ -114,6 +115,9 @@ class MyPlugin(Star):
         )
         self._log_debug(f"回退到默认输出模式: {self._OUTPUT_TEXT}")
         return self._OUTPUT_TEXT
+
+    def _is_image_post_process_enabled(self) -> bool:
+        return bool(self.config.get("post_process_image", False))
 
     @property
     def _templates_dir(self) -> Path:
@@ -736,6 +740,9 @@ class MyPlugin(Star):
                 )
                 if not image_url:
                     raise ValueError("html_render 返回了空的图片 URL/路径")
+                if self._is_image_post_process_enabled():
+                    self._log_debug("已启用图片后处理，尝试裁剪主卡片外白色背景。")
+                    image_url = crop_outer_white_background(image_url)
                 yield event.image_result(image_url)
                 return
             except Exception as exc:  # noqa: BLE001
