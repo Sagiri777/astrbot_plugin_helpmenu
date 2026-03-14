@@ -18,7 +18,6 @@ from astrbot.core.star.star_handler import star_handlers_registry
 from .api_client import ApiClient, HttpStatusError
 from .image_renderer import render_help_page_as_image
 from .page_builder import CommandDocItem, build_image_pages, build_pages
-from .tests.image_test import render_test_image
 
 
 @dataclass(slots=True, frozen=True)
@@ -42,11 +41,10 @@ class MyPlugin(Star):
     _DEFAULT_IMAGE_TEMPLATE = "classic"
     _DEFAULT_IMAGE_RENDER_OPTIONS = {
         "type": "png",
-        "full_page": False,
-        "omit_background": True,
+        "full_page": True,
         "animations": "disabled",
         "caret": "hide",
-        "scale": 1.0,
+        "scale": "css",
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -608,30 +606,77 @@ class MyPlugin(Star):
 
     @helpmenu_group.command("imageTest")
     async def helpmenu_image_test(self, event: AstrMessageEvent):
-        """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。
-
-        如果系统文转图失败，会自动切换到备用文转图服务 https://t2i.soulter.top/text2img
-        """
+        """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。"""
         self._log_debug("收到 helpMenu imageTest 命令请求")
 
         try:
-            # 调用测试模块渲染测试图片
-            image_url, message = await render_test_image(
-                html_render_func=self.html_render,
-                templates_dir=self._templates_dir,
-                template_name="classic.html",
-                log_debug_callback=self._log_debug,
-                use_fallback_on_failure=True,
+            # 直接从内置模板渲染测试图片
+            from .page_builder import build_image_pages
+            from .image_renderer import get_image_template
+
+            # 创建示例数据
+            sample_items = [
+                CommandDocItem(
+                    plugin_name="插件1",
+                    command="hello",
+                    description="你好呀",
+                    aliases=[],
+                    permission="everyone",
+                ),
+                CommandDocItem(
+                    plugin_name="插件1",
+                    command="search",
+                    description="搜索内容",
+                    aliases=[],
+                    permission="everyone",
+                ),
+                CommandDocItem(
+                    plugin_name="插件2",
+                    command="status",
+                    description="查看状态",
+                    aliases=[],
+                    permission="everyone",
+                ),
+            ]
+
+            image_pages = build_image_pages(sample_items)
+            if not image_pages:
+                yield event.plain_result("无法生成测试图片：无可用命令")
+                return
+
+            template_name = (
+                self.config.get("light_template")
+                or self.config.get("image_template")
+                or "classic"
             )
 
-            # 如果有备用服务提示，先发送提示
-            if message:
-                self._log_debug(f"发送提示信息: {message}")
-                yield event.plain_result(message)
+            self._log_debug(f"使用模板: {template_name}")
+            template_content = get_image_template(
+                self._templates_dir,
+                template_name,
+                self.config.get("light_template"),
+                self.config.get("dark_template"),
+                str(self.config.get("dark_time_start", "18:00")),
+                str(self.config.get("dark_time_end", "06:00")),
+                self._is_debug_enabled(),
+            )
 
-            # 发送图片给用户
+            self._log_debug("调用 html_render 渲染测试图片...")
+            image_url = await self.html_render(
+                template_content,
+                {
+                    "subtitle": "文转图测试 | 第 1/1 页 | 命令数: 3 | 文档更新时间: 2026-03-14",
+                    "warning": "",
+                    "cards": image_pages[0],
+                },
+                options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
+            )
+
+            if not image_url:
+                raise ValueError("html_render 返回了空的图片 URL")
+
+            self._log_debug(f"图片渲染成功: {image_url[:100] if len(image_url) > 100 else image_url}")
             yield event.image_result(image_url)
-            self._log_debug("图片已发送")
 
         except FileNotFoundError as exc:
             self._log_debug(f"模板文件不存在: {exc}")

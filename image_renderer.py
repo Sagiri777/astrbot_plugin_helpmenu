@@ -6,11 +6,10 @@ from astrbot.api import logger
 
 DEFAULT_IMAGE_RENDER_OPTIONS = {
     "type": "png",
-    "full_page": False,
-    "omit_background": True,
+    "full_page": True,
     "animations": "disabled",
     "caret": "hide",
-    "scale": 1.0,
+    "scale": "css",
 }
 
 DEFAULT_IMAGE_TEMPLATE = "classic"
