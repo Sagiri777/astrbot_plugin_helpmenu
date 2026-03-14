@@ -19,6 +19,12 @@
     "hint": "text: 文本分页输出；image: 使用 HTML 模板渲染图片输出。",
     "default": "text"
   },
+  "post_process_image": {
+    "description": "后处理图片",
+    "type": "bool",
+    "hint": "仅在 output_mode=image 时生效；开启后将识别并裁剪主卡片外的白色背景。",
+    "default": false
+  },
   "admin_name": {
     "description": "登录ASTR后台的用户名",
     "type": "string"
