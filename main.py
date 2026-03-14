@@ -599,20 +599,14 @@ class MyPlugin(Star):
             return
         yield event.plain_result(message)
 
-    @filter.command_group("helpMenu")
-    async def helpmenu_group(self, event: AstrMessageEvent):
-        """帮助菜单命令组。"""
-        pass
-
-    @helpmenu_group.command("imageTest")
-    async def helpmenu_image_test(self, event: AstrMessageEvent):
+    async def _handle_image_test(self, event: AstrMessageEvent):
         """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。"""
         self._log_debug("收到 helpMenu imageTest 命令请求")
 
         try:
             # 直接从内置模板渲染测试图片
-            from .page_builder import build_image_pages
             from .image_renderer import get_image_template
+            from .page_builder import build_image_pages
             from .tests.image_test import render_with_fallback_t2i
 
             # 创建示例数据
@@ -668,27 +662,31 @@ class MyPlugin(Star):
                 "warning": "",
                 "cards": image_pages[0],
             }
-            
+
             self._log_debug("调用 html_render 渲染测试图片...")
             image_url = None
             fallback_message = ""
-            
+
             try:
                 image_url = await self.html_render(
                     template_content,
                     render_data,
                     options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
                 )
-                
+
                 if not image_url:
                     raise ValueError("html_render 返回了空的图片 URL")
-                    
-                self._log_debug(f"系统文转图成功: {image_url[:100] if len(image_url) > 100 else image_url}")
-                
+
+                self._log_debug(
+                    f"系统文转图成功: {image_url[:100] if len(image_url) > 100 else image_url}"
+                )
+
             except Exception as primary_exc:
-                self._log_debug(f"系统文转图失败: {type(primary_exc).__name__}: {primary_exc}")
+                self._log_debug(
+                    f"系统文转图失败: {type(primary_exc).__name__}: {primary_exc}"
+                )
                 self._log_debug("尝试使用备用文转图服务...")
-                
+
                 # 备用服务调用
                 fallback_url, fallback_msg = await render_with_fallback_t2i(
                     template_content,
@@ -701,7 +699,7 @@ class MyPlugin(Star):
 
             if fallback_message:
                 yield event.plain_result(fallback_message)
-                
+
             yield event.image_result(image_url)
 
         except FileNotFoundError as exc:
@@ -714,13 +712,20 @@ class MyPlugin(Star):
             self._log_debug(f"异常堆栈: {traceback.format_exc()}")
             yield event.plain_result(f"文转图测试失败: {exc}")
 
-    @helpmenu_group.command("help")
+    @filter.command("helpMenu")
     async def helpmenu(self, event: AstrMessageEvent):
         """展示支持翻页的帮助菜单。"""
         self._log_debug("收到 helpMenu 命令请求")
         self._log_debug(
             f"是否为管理员私聊: {event.is_admin() and event.is_private_chat()}"
         )
+
+        # 检测是否为 imageTest 参数
+        arg = self._parse_help_arg(event.message_str)
+        if arg == "imagetest":
+            async for result in self._handle_image_test(event):
+                yield result
+            return
 
         if not self._help_cache.pages:
             self._log_debug("帮助缓存为空，尝试刷新")
@@ -735,7 +740,6 @@ class MyPlugin(Star):
                 return
 
         session_id = event.get_session_id()
-        arg = self._parse_help_arg(event.message_str)
         self._log_debug(
             f"会话ID: {session_id[:32] if len(session_id) > 32 else session_id}"
         )
@@ -788,7 +792,9 @@ class MyPlugin(Star):
                     self._is_debug_enabled(),
                 )
             except Exception as exc:  # noqa: BLE001
-                self._log_debug(f"首轮图片渲染失败，准备使用经典模板重试: {type(exc).__name__}: {exc}")
+                self._log_debug(
+                    f"首轮图片渲染失败，准备使用经典模板重试: {type(exc).__name__}: {exc}"
+                )
                 image_url = await render_help_page_as_image(
                     self.html_render,
                     self._templates_dir,
