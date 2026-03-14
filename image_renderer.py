@@ -208,7 +208,7 @@ async def render_help_page_as_image(
         result = await html_render_func(
             template_content,
             data,
-            DEFAULT_IMAGE_RENDER_OPTIONS,
+            options=DEFAULT_IMAGE_RENDER_OPTIONS,
         )
 
         log_debug(f"图片渲染成功, 返回类型: {type(result).__name__}")

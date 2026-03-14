@@ -18,6 +18,7 @@ from astrbot.core.star.star_handler import star_handlers_registry
 from .api_client import ApiClient, HttpStatusError
 from .image_renderer import render_help_page_as_image
 from .page_builder import CommandDocItem, build_image_pages, build_pages
+from .tests.image_test import render_test_image
 
 
 @dataclass(slots=True, frozen=True)
@@ -595,7 +596,39 @@ class MyPlugin(Star):
             return
         yield event.plain_result(message)
 
-    @filter.command("helpMenu")
+    @filter.command_group("helpMenu")
+    async def helpmenu_group(self, event: AstrMessageEvent):
+        """帮助菜单命令组。"""
+        pass
+
+    @helpmenu_group.command("imageTest")
+    async def helpmenu_image_test(self, event: AstrMessageEvent):
+        """测试文转图功能，使用系统 html_render 渲染示例帮助菜单图片。"""
+        self._log_debug("收到 helpMenu imageTest 命令请求")
+
+        try:
+            # 调用测试模块渲染测试图片
+            image_url = await render_test_image(
+                html_render_func=self.html_render,
+                templates_dir=self._templates_dir,
+                template_name="classic.html",
+                log_debug_callback=self._log_debug,
+            )
+
+            # 发送图片给用户
+            yield event.image_result(image_url)
+            self._log_debug("图片已发送")
+
+        except FileNotFoundError as exc:
+            self._log_debug(f"模板文件不存在: {exc}")
+            yield event.plain_result(f"模板文件不存在: {exc}")
+        except Exception as exc:
+            self._log_debug(f"文转图测试失败: {type(exc).__name__}: {exc}")
+            import traceback
+            self._log_debug(f"异常堆栈: {traceback.format_exc()}")
+            yield event.plain_result(f"文转图测试失败: {exc}")
+
+    @helpmenu_group.command("help")
     async def helpmenu(self, event: AstrMessageEvent):
         """展示支持翻页的帮助菜单。"""
         self._log_debug("收到 helpMenu 命令请求")
