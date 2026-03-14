@@ -696,45 +696,45 @@ class MyPlugin(Star):
             self._log_debug(f"当前页码: {page}")
             try:
                 self._log_debug("准备调用 render_help_page_as_image...")
-                image_url = await render_help_page_as_image(
-                    self.html_render,
-                    self._templates_dir,
-                    image_page_bucket[page - 1],
-                    warning,
-                    page,
-                    len(image_page_bucket),
-                    snapshot.total_items,
-                    snapshot.last_update,
-                    snapshot.source_mode,
-                    self.config.get("light_template")
-                    or self.config.get("image_template"),
-                    self.config.get("dark_template"),
-                    str(self.config.get("dark_time_start", "18:00")),
-                    str(self.config.get("dark_time_end", "06:00")),
-                    self._is_debug_enabled(),
-                )
-            except Exception as exc:  # noqa: BLE001
-                self._log_debug(
-                    f"首轮图片渲染失败，准备使用经典模板重试: {type(exc).__name__}: {exc}"
-                )
-                image_url = await render_help_page_as_image(
-                    self.html_render,
-                    self._templates_dir,
-                    image_page_bucket[page - 1],
-                    warning,
-                    page,
-                    len(image_page_bucket),
-                    snapshot.total_items,
-                    snapshot.last_update,
-                    snapshot.source_mode,
-                    self._DEFAULT_IMAGE_TEMPLATE,
-                    None,
-                    str(self.config.get("dark_time_start", "18:00")),
-                    str(self.config.get("dark_time_end", "06:00")),
-                    self._is_debug_enabled(),
-                )
+                try:
+                    image_url = await render_help_page_as_image(
+                        self.html_render,
+                        self._templates_dir,
+                        image_page_bucket[page - 1],
+                        warning,
+                        page,
+                        len(image_page_bucket),
+                        snapshot.total_items,
+                        snapshot.last_update,
+                        snapshot.source_mode,
+                        self.config.get("light_template")
+                        or self.config.get("image_template"),
+                        self.config.get("dark_template"),
+                        str(self.config.get("dark_time_start", "18:00")),
+                        str(self.config.get("dark_time_end", "06:00")),
+                        self._is_debug_enabled(),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    self._log_debug(
+                        f"首轮图片渲染失败，准备使用经典模板重试: {type(exc).__name__}: {exc}"
+                    )
+                    image_url = await render_help_page_as_image(
+                        self.html_render,
+                        self._templates_dir,
+                        image_page_bucket[page - 1],
+                        warning,
+                        page,
+                        len(image_page_bucket),
+                        snapshot.total_items,
+                        snapshot.last_update,
+                        snapshot.source_mode,
+                        self._DEFAULT_IMAGE_TEMPLATE,
+                        None,
+                        str(self.config.get("dark_time_start", "18:00")),
+                        str(self.config.get("dark_time_end", "06:00")),
+                        self._is_debug_enabled(),
+                    )
 
-            try:
                 self._log_debug(
                     f"图片渲染完成，URL: {image_url[:100] if len(image_url) > 100 else image_url}"
                 )
