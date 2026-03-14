@@ -40,36 +40,41 @@ def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
     if image_path is None or not image_path.exists() or not image_path.is_file():
         return image_ref
 
-    pil_image_module = importlib.import_module("PIL.Image")
-    with pil_image_module.open(image_path) as image:
-        rgb_image = image.convert("RGB")
-        width, height = rgb_image.size
-        pixels = rgb_image.load()
+    try:
+        pil_image_module = importlib.import_module("PIL.Image")
+        with pil_image_module.open(image_path) as image:
+            rgb_image = image.convert("RGB")
+            width, height = rgb_image.size
+            pixels = rgb_image.load()
 
-        left = width
-        top = height
-        right = -1
-        bottom = -1
+            left = width
+            top = height
+            right = -1
+            bottom = -1
 
-        for y in range(height):
-            for x in range(width):
-                r, g, b = pixels[x, y]
-                if _is_near_white(r, g, b, threshold):
-                    continue
-                if x < left:
-                    left = x
-                if y < top:
-                    top = y
-                if x > right:
-                    right = x
-                if y > bottom:
-                    bottom = y
+            for y in range(height):
+                for x in range(width):
+                    r, g, b = pixels[x, y]
+                    if _is_near_white(r, g, b, threshold):
+                        continue
+                    if x < left:
+                        left = x
+                    if y < top:
+                        top = y
+                    if x > right:
+                        right = x
+                    if y > bottom:
+                        bottom = y
 
-        if right < left or bottom < top:
-            return image_ref
+            if right < left or bottom < top:
+                return image_ref
 
-        cropped = image.crop((left, top, right + 1, bottom + 1))
-        cropped.save(image_path)
+            cropped = image.crop((left, top, right + 1, bottom + 1))
+            cropped.save(image_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            f"[helpmenu] 图片后处理失败，跳过裁剪：{type(exc).__name__}: {exc}"
+        )
+        return image_ref
 
     return image_ref
-

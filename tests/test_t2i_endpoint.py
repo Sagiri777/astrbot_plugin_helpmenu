@@ -69,13 +69,15 @@ def get_sample_data() -> dict:
     }
 
 
-async def render_template(session: aiohttp.ClientSession, endpoint: str, template_name: str, tmpl_data: dict) -> str:
+async def render_template(
+    session: aiohttp.ClientSession, endpoint: str, template_name: str, tmpl_data: dict
+) -> str:
     """Render a template and download the image. Returns the saved image path."""
     print(f"\n[Rendering] Template: {template_name}")
-    
+
     # Load template
     tmpl_str = load_template(template_name)
-    
+
     # Prepare request data
     post_data = {
         "tmpl": tmpl_str,
@@ -83,33 +85,35 @@ async def render_template(session: aiohttp.ClientSession, endpoint: str, templat
         "tmpldata": tmpl_data,
         "options": {"full_page": False, "type": "png", "omit_background": True},
     }
-    
+
     # Request image generation
     async with session.post(f"{endpoint}/generate", json=post_data) as resp:
         print(f"  Status: {resp.status}")
-        
+
         if resp.status != 200:
             text = await resp.text()
             print(f"  Error: {text[:200]}")
             return None
-        
+
         data = await resp.json()
         print(f"  Response: {data}")
-        
+
         if "data" not in data or "id" not in data["data"]:
             print("  Error: No image ID in response")
             return None
-        
+
         image_url = f"{endpoint}/{data['data']['id']}"
         print(f"  Image URL: {image_url}")
-        
+
         # Download image
         tmp_dir = Path(__file__).parent / "tmp"
         tmp_dir.mkdir(exist_ok=True)
-        
-        image_filename = f"{template_name.replace('.html', '')}_{data['data']['id'].split('/')[-1]}"
+
+        image_filename = (
+            f"{template_name.replace('.html', '')}_{data['data']['id'].split('/')[-1]}"
+        )
         image_path = tmp_dir / image_filename
-        
+
         async with session.get(image_url) as img_resp:
             if img_resp.status == 200:
                 with open(image_path, "wb") as f:
@@ -123,10 +127,10 @@ async def render_template(session: aiohttp.ClientSession, endpoint: str, templat
 
 async def test_t2i_endpoint():
     """Test the t2i endpoint with project templates."""
-    
+
     endpoint = "https://t2i.soulter.top/text2img"
     tmpl_data = get_sample_data()
-    
+
     # Available templates
     templates = [
         "classic.html",
@@ -140,30 +144,31 @@ async def test_t2i_endpoint():
         "ember_industrial.html",
         "ember_industrial_dark.html",
     ]
-    
+
     print(f"Testing endpoint: {endpoint}")
     print(f"Templates to test: {len(templates)}")
     print("=" * 60)
-    
+
     headers = {
         "Accept-Encoding": "gzip, deflate",
     }
-    
+
     async with aiohttp.ClientSession(
         trust_env=True,
         connector=build_tls_connector(),
         headers=headers,
     ) as session:
-        
         results = []
         for template_name in templates:
             try:
-                path = await render_template(session, endpoint, template_name, tmpl_data)
+                path = await render_template(
+                    session, endpoint, template_name, tmpl_data
+                )
                 results.append((template_name, path))
             except Exception as e:
                 print(f"  Exception: {e}")
                 results.append((template_name, None))
-    
+
     print("\n" + "=" * 60)
     print("Summary:")
     success = sum(1 for _, p in results if p)

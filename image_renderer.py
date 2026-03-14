@@ -13,6 +13,12 @@ DEFAULT_IMAGE_RENDER_OPTIONS = {
     "scale": 1.0,
 }
 
+MINIMAL_IMAGE_RENDER_OPTIONS = {
+    "type": "png",
+    "full_page": False,
+    "omit_background": True,
+}
+
 DEFAULT_IMAGE_TEMPLATE = "classic"
 MODE_API = "api"
 
@@ -243,6 +249,36 @@ async def render_help_page_as_image(
     )
     log_debug(f"使用的模板: {template_name}")
 
+    def is_http_422_error(exc: Exception) -> bool:
+        status = getattr(exc, "status", None)
+        if status == 422:
+            return True
+
+        status_code = getattr(exc, "status_code", None)
+        if status_code == 422:
+            return True
+
+        response = getattr(exc, "response", None)
+        if response is not None and getattr(response, "status", None) == 422:
+            return True
+
+        message = str(exc)
+        return "422" in message and "Unprocessable" in message
+
+    def normalize_image_result(result: object) -> str:
+        log_debug(f"图片渲染成功, 返回类型: {type(result).__name__}")
+        if isinstance(result, str):
+            log_debug(f"图片URL/路径长度: {len(result)} 字符")
+            if not result:
+                raise ValueError("html_render 返回了空字符串")
+            return result
+        if result is None:
+            raise ValueError("html_render 返回了 None")
+
+        result_str = str(result)
+        log_debug(f"将返回值转换为字符串，长度: {len(result_str)} 字符")
+        return result_str
+
     try:
         template_content = get_image_template(
             templates_dir,
@@ -257,25 +293,30 @@ async def render_help_page_as_image(
 
         # 调用 html_render 生成图片
         log_debug("调用 html_render 开始渲染...")
-        result = await html_render_func(
-            template_content,
-            data,
-            options=DEFAULT_IMAGE_RENDER_OPTIONS,
-        )
+        try:
+            result = await html_render_func(
+                template_content,
+                data,
+                options=DEFAULT_IMAGE_RENDER_OPTIONS,
+            )
+        except Exception as exc:
+            if not is_http_422_error(exc):
+                raise
 
-        log_debug(f"图片渲染成功, 返回类型: {type(result).__name__}")
-        if isinstance(result, str):
-            log_debug(f"图片URL/路径长度: {len(result)} 字符")
-            if not result:
-                raise ValueError("html_render 返回了空字符串")
-            return result
-        elif result is None:
-            raise ValueError("html_render 返回了 None")
-        else:
-            # 如果返回的是其他类型，尝试转换为字符串
-            result_str = str(result)
-            log_debug(f"将返回值转换为字符串，长度: {len(result_str)} 字符")
-            return result_str
+            logger.warning(
+                "[helpmenu] 默认文转图参数被端点拒绝(422)，已自动回退最小兼容参数重试。"
+            )
+            log_debug(
+                f"默认参数渲染失败(422): {type(exc).__name__}: {exc}; "
+                f"使用最小兼容参数重试: {json.dumps(MINIMAL_IMAGE_RENDER_OPTIONS, ensure_ascii=False)}"
+            )
+            result = await html_render_func(
+                template_content,
+                data,
+                options=MINIMAL_IMAGE_RENDER_OPTIONS,
+            )
+
+        return normalize_image_result(result)
     except Exception as exc:
         log_debug(f"图片渲染失败: {type(exc).__name__}: {exc}")
         log_debug(f"渲染数据详情 - subtitle: {data.get('subtitle')}")
