@@ -271,3 +271,87 @@ async def render_test_image(
             error_msg = f"系统文转图失败: {primary_exc}；备用服务也失败: {fallback_exc}"
             _log(f"最终错误消息: {error_msg}")
             raise RuntimeError(error_msg) from fallback_exc
+
+
+async def run_image_test_command(
+    html_render_func,
+    templates_dir: Path,
+    config,
+    is_debug_enabled: bool,
+    log_debug_callback=None,
+) -> tuple[str, str]:
+    """执行 helpMenu imageTest 命令所需的渲染流程。"""
+
+    def _log(msg: str) -> None:
+        if log_debug_callback:
+            log_debug_callback(msg)
+
+    from ..image_renderer import get_image_template
+    from ..page_builder import CommandDocItem, build_image_pages
+
+    sample_items = [
+        CommandDocItem(
+            plugin_name="插件1",
+            command="hello",
+            description="你好呀",
+            aliases=[],
+            permission="everyone",
+        ),
+        CommandDocItem(
+            plugin_name="插件1",
+            command="search",
+            description="搜索内容",
+            aliases=[],
+            permission="everyone",
+        ),
+        CommandDocItem(
+            plugin_name="插件2",
+            command="status",
+            description="查看状态",
+            aliases=[],
+            permission="everyone",
+        ),
+    ]
+
+    image_pages = build_image_pages(sample_items)
+    if not image_pages:
+        raise ValueError("无法生成测试图片：无可用命令")
+
+    template_name = (
+        config.get("light_template") or config.get("image_template") or "classic"
+    )
+    _log(f"使用模板: {template_name}")
+
+    template_content = get_image_template(
+        templates_dir,
+        template_name,
+        config.get("light_template"),
+        config.get("dark_template"),
+        str(config.get("dark_time_start", "18:00")),
+        str(config.get("dark_time_end", "06:00")),
+        is_debug_enabled,
+    )
+
+    render_data = {
+        "subtitle": "文转图测试 | 第 1/1 页 | 命令数: 3 | 文档更新时间: 2026-03-14",
+        "warning": "",
+        "cards": image_pages[0],
+    }
+
+    _log("调用 html_render 渲染测试图片...")
+    try:
+        image_url = await html_render_func(
+            template_content,
+            render_data,
+            options=DEFAULT_RENDER_OPTIONS,
+        )
+        if not image_url:
+            raise ValueError("html_render 返回了空的图片 URL")
+        return image_url, ""
+    except Exception as primary_exc:
+        _log(f"系统文转图失败: {type(primary_exc).__name__}: {primary_exc}")
+        return await render_with_fallback_t2i(
+            template_content,
+            render_data,
+            log_debug_callback,
+        )
