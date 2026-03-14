@@ -108,9 +108,11 @@ async def render_with_fallback_t2i(
         if log_debug_callback:
             log_debug_callback(msg)
     
-    _log(f"使用备用文转图服务: {FALLBACK_T2I_ENDPOINT}")
+    _log(f"【备用服务调用】使用备用文转图服务: {FALLBACK_T2I_ENDPOINT}")
+    _log(f"【备用服务调用】请求URL: {FALLBACK_T2I_ENDPOINT}/generate")
+    _log(f"【备用服务调用】Session配置: trust_env=True, connector=build_tls_connector()")
     
-    # 准备请求数据
+    # 准备请求数据（与 test_t2i_endpoint.py 完全一致）
     post_data = {
         "tmpl": template_content,
         "json": "true",
@@ -122,22 +124,38 @@ async def render_with_fallback_t2i(
         },
     }
     
-    # 调试：打印请求数据的关键信息
+    # 调试：对比 test_t2i_endpoint.py 的格式
     import json
-    _log(f"请求数据 - tmpl 长度: {len(template_content)} 字符")
-    _log(f"请求数据 - tmpldata keys: {list(tmpl_data.keys())}")
-    _log(f"请求数据 - tmpldata subtitle: {tmpl_data.get('subtitle', '')[:50]}")
-    _log(f"请求数据 - tmpldata cards 数量: {len(tmpl_data.get('cards', []))}")
-    _log(f"请求数据 - options: {post_data['options']}")
-    _log(f"请求数据 - json 序列化后大小: {len(json.dumps(post_data))} 字节")
+    post_data_json = json.dumps(post_data, ensure_ascii=False)
+    _log(f"=== 备用服务请求数据 ===")
+    _log(f"URL: {FALLBACK_T2I_ENDPOINT}/generate")
+    _log(f"Method: POST")
+    _log(f"Content-Type: application/json")
+    _log(f"数据大小: {len(post_data_json)} 字节")
+    _log(f"数据预览: {post_data_json[:300]}...")
     
-    timeout = aiohttp.ClientTimeout(total=60)
+    # 对比 test_t2i_endpoint.py 的格式
+    _log(f"对比 test_t2i_endpoint.py 格式:")
+    _log(f"  - tmpl: {len(template_content)} 字符 (模板长度)")
+    _log(f"  - json: 'true' (字符串)")
+    _log(f"  - tmpldata: {type(tmpl_data).__name__} (类型)")
+    _log(f"  - options: {post_data['options']}")
+    
+    # 调试：检查数据结构
+    _log(f"tmpldata keys: {list(tmpl_data.keys())}")
+    if 'cards' in tmpl_data:
+        _log(f"cards 数量: {len(tmpl_data['cards'])}")
+        for i, card in enumerate(tmpl_data['cards'][:2]):  # 只看前2个卡片
+            _log(f"  Card {i}: plugin={card.get('plugin')}, commands={len(card.get('commands', []))}")
+            for j, cmd in enumerate(card.get('commands', [])[:2]):  # 每个卡片只看前2个命令
+                _log(f"    Command {j}: name={cmd.get('name')}, aliases={repr(cmd.get('aliases'))}, type={type(cmd.get('aliases'))}")
+    
+    # 移除 timeout 参数，与 test_t2i_endpoint.py 完全一致
     headers = {
         "Accept-Encoding": "gzip, deflate",
     }
     
     async with aiohttp.ClientSession(
-        timeout=timeout,
         trust_env=True,
         connector=build_tls_connector(),
         headers=headers,
@@ -229,21 +247,22 @@ async def render_test_image(
         return image_url, ""
         
     except Exception as primary_exc:
-        _log(f"系统文转图失败: {type(primary_exc).__name__}: {primary_exc}")
+        _log(f"【系统文转图失败】{type(primary_exc).__name__}: {primary_exc}")
+        _log(f"【系统文转图失败】准备调用备用服务，use_fallback_on_failure={use_fallback_on_failure}")
         
         if not use_fallback_on_failure:
-            _log("备用服务已禁用，重新抛出异常")
+            _log("【备用服务已禁用】重新抛出异常")
             raise
         
         # 尝试备用服务
-        _log("尝试使用备用文转图服务...")
+        _log("【备用服务调用开始】尝试使用备用文转图服务...")
         try:
             fallback_url, fallback_msg = await render_with_fallback_t2i(
                 template_content,
                 sample_data,
                 log_debug_callback,
             )
-            _log(f"备用服务渲染成功: {fallback_msg}")
+            _log(f"【备用服务调用成功】{fallback_msg}")
             return fallback_url, fallback_msg
             
         except Exception as fallback_exc:
