@@ -15,6 +15,40 @@ DEFAULT_IMAGE_RENDER_OPTIONS = {
 DEFAULT_IMAGE_TEMPLATE = "classic"
 MODE_API = "api"
 
+# Fallback template to keep image rendering working even when template files are
+# missing in runtime package deployments.
+FALLBACK_IMAGE_TEMPLATES: dict[str, str] = {
+    "classic": """
+<div style="background:#eef4ff;padding:24px;font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="max-width:940px;margin:0 auto;background:#fff;border:1px solid #d8e5ff;border-radius:16px;padding:16px;box-sizing:border-box;">
+    <div style="font-size:14px;color:#334155;line-height:1.5;font-weight:520;">{{ subtitle }}</div>
+    {% if warning %}
+    <div style="margin-top:10px;padding:8px 10px;border:1px solid #f5d08a;background:#fff7e8;border-radius:10px;font-size:12px;color:#8a5a00;">{{ warning }}</div>
+    {% endif %}
+    <div style="margin-top:12px;column-count:2;column-gap:10px;">
+      {% for card in cards %}
+      <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;border:1px solid #dbe7ff;border-radius:12px;background:#f8fbff;">
+        <div style="font-size:15px;color:#1e3a8a;font-weight:700;word-break:break-word;">{{ card.plugin }}</div>
+        {% if card.continued %}
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">本页续接</div>
+        {% endif %}
+        {% for command in card.commands %}
+        <div style="margin-top:6px;padding:6px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;">
+          <div style="font-size:13px;color:#0f172a;font-weight:650;">/{{ command.name }}</div>
+          <div style="margin-top:3px;font-size:11px;color:#334155;line-height:1.4;">{{ command.description }}</div>
+          {% if command.aliases %}
+          <div style="margin-top:3px;font-size:10px;color:#64748b;line-height:1.35;">别名: {{ command.aliases }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+""",
+}
+
 
 def is_dark_time(dark_time_start: str = "18:00", dark_time_end: str = "06:00") -> bool:
     """判断当前是否为深色模式时间段。"""
@@ -43,9 +77,13 @@ def is_dark_time(dark_time_start: str = "18:00", dark_time_end: str = "06:00") -
 
 def get_available_templates(templates_dir: Path) -> list[str]:
     """获取可用模板列表。"""
-    if not templates_dir.exists():
-        return []
-    return [f.stem for f in templates_dir.glob("*.html")]
+    fs_templates: list[str] = []
+    if templates_dir.exists():
+        fs_templates = [f.stem for f in templates_dir.glob("*.html")]
+
+    # Keep old behavior compatibility: built-in templates should still work
+    # even when templates folder is not packaged.
+    return sorted(set(fs_templates + list(FALLBACK_IMAGE_TEMPLATES.keys())))
 
 
 def get_image_template_name(
@@ -129,9 +167,23 @@ def get_image_template(
         log_debug(f"成功读取模板文件，内容长度: {len(content)} 字符")
         return content
     except Exception as e:
-        logger.error(f"[helpmenu] 读取模板文件 {template_file} 失败: {e}")
+        logger.warning(f"[helpmenu] 读取模板文件 {template_file} 失败: {e}")
         log_debug(f"模板文件读取异常: {type(e).__name__}: {e}")
-        return "模板读取失败"
+
+    fallback_template = FALLBACK_IMAGE_TEMPLATES.get(template_name)
+    if fallback_template:
+        logger.warning(
+            "[helpmenu] 已回退到内置 %s 模板，确保文转图功能可用。",
+            template_name,
+        )
+        return fallback_template
+
+    logger.warning(
+        "[helpmenu] 未找到模板 %s，对应内置模板也不存在，回退到内置 %s 模板。",
+        template_name,
+        DEFAULT_IMAGE_TEMPLATE,
+    )
+    return FALLBACK_IMAGE_TEMPLATES[DEFAULT_IMAGE_TEMPLATE]
 
 
 def mode_display_name(mode: str) -> str:
