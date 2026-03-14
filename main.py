@@ -613,6 +613,7 @@ class MyPlugin(Star):
             # 直接从内置模板渲染测试图片
             from .page_builder import build_image_pages
             from .image_renderer import get_image_template
+            from .tests.image_test import render_with_fallback_t2i
 
             # 创建示例数据
             sample_items = [
@@ -661,21 +662,46 @@ class MyPlugin(Star):
                 self._is_debug_enabled(),
             )
 
+            # 准备渲染数据
+            render_data = {
+                "subtitle": "文转图测试 | 第 1/1 页 | 命令数: 3 | 文档更新时间: 2026-03-14",
+                "warning": "",
+                "cards": image_pages[0],
+            }
+            
             self._log_debug("调用 html_render 渲染测试图片...")
-            image_url = await self.html_render(
-                template_content,
-                {
-                    "subtitle": "文转图测试 | 第 1/1 页 | 命令数: 3 | 文档更新时间: 2026-03-14",
-                    "warning": "",
-                    "cards": image_pages[0],
-                },
-                options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
-            )
+            image_url = None
+            fallback_message = ""
+            
+            try:
+                image_url = await self.html_render(
+                    template_content,
+                    render_data,
+                    options=self._DEFAULT_IMAGE_RENDER_OPTIONS,
+                )
+                
+                if not image_url:
+                    raise ValueError("html_render 返回了空的图片 URL")
+                    
+                self._log_debug(f"系统文转图成功: {image_url[:100] if len(image_url) > 100 else image_url}")
+                
+            except Exception as primary_exc:
+                self._log_debug(f"系统文转图失败: {type(primary_exc).__name__}: {primary_exc}")
+                self._log_debug("尝试使用备用文转图服务...")
+                
+                # 备用服务调用
+                fallback_url, fallback_msg = await render_with_fallback_t2i(
+                    template_content,
+                    render_data,
+                    self._log_debug,
+                )
+                image_url = fallback_url
+                fallback_message = fallback_msg
+                self._log_debug(f"备用服务成功: {fallback_msg}")
 
-            if not image_url:
-                raise ValueError("html_render 返回了空的图片 URL")
-
-            self._log_debug(f"图片渲染成功: {image_url[:100] if len(image_url) > 100 else image_url}")
+            if fallback_message:
+                yield event.plain_result(fallback_message)
+                
             yield event.image_result(image_url)
 
         except FileNotFoundError as exc:
