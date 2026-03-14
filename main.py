@@ -16,6 +16,7 @@ from astrbot.core.star.filter.permission import PermissionType, PermissionTypeFi
 from astrbot.core.star.star_handler import star_handlers_registry
 
 from .api_client import ApiClient, HttpStatusError
+from .image_post_processor import crop_outer_white_background
 from .image_renderer import render_help_page_as_image
 from .page_builder import CommandDocItem, build_image_pages, build_pages
 
@@ -114,6 +115,9 @@ class MyPlugin(Star):
         )
         self._log_debug(f"回退到默认输出模式: {self._OUTPUT_TEXT}")
         return self._OUTPUT_TEXT
+
+    def _is_image_post_process_enabled(self) -> bool:
+        return bool(self.config.get("post_process_image", False))
 
     @property
     def _templates_dir(self) -> Path:
@@ -692,50 +696,53 @@ class MyPlugin(Star):
             self._log_debug(f"当前页码: {page}")
             try:
                 self._log_debug("准备调用 render_help_page_as_image...")
-                image_url = await render_help_page_as_image(
-                    self.html_render,
-                    self._templates_dir,
-                    image_page_bucket[page - 1],
-                    warning,
-                    page,
-                    len(image_page_bucket),
-                    snapshot.total_items,
-                    snapshot.last_update,
-                    snapshot.source_mode,
-                    self.config.get("light_template")
-                    or self.config.get("image_template"),
-                    self.config.get("dark_template"),
-                    str(self.config.get("dark_time_start", "18:00")),
-                    str(self.config.get("dark_time_end", "06:00")),
-                    self._is_debug_enabled(),
-                )
-            except Exception as exc:  # noqa: BLE001
-                self._log_debug(
-                    f"首轮图片渲染失败，准备使用经典模板重试: {type(exc).__name__}: {exc}"
-                )
-                image_url = await render_help_page_as_image(
-                    self.html_render,
-                    self._templates_dir,
-                    image_page_bucket[page - 1],
-                    warning,
-                    page,
-                    len(image_page_bucket),
-                    snapshot.total_items,
-                    snapshot.last_update,
-                    snapshot.source_mode,
-                    self._DEFAULT_IMAGE_TEMPLATE,
-                    None,
-                    str(self.config.get("dark_time_start", "18:00")),
-                    str(self.config.get("dark_time_end", "06:00")),
-                    self._is_debug_enabled(),
-                )
+                try:
+                    image_url = await render_help_page_as_image(
+                        self.html_render,
+                        self._templates_dir,
+                        image_page_bucket[page - 1],
+                        warning,
+                        page,
+                        len(image_page_bucket),
+                        snapshot.total_items,
+                        snapshot.last_update,
+                        snapshot.source_mode,
+                        self.config.get("light_template")
+                        or self.config.get("image_template"),
+                        self.config.get("dark_template"),
+                        str(self.config.get("dark_time_start", "18:00")),
+                        str(self.config.get("dark_time_end", "06:00")),
+                        self._is_debug_enabled(),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    self._log_debug(
+                        f"首轮图片渲染失败，准备使用经典模板重试: {type(exc).__name__}: {exc}"
+                    )
+                    image_url = await render_help_page_as_image(
+                        self.html_render,
+                        self._templates_dir,
+                        image_page_bucket[page - 1],
+                        warning,
+                        page,
+                        len(image_page_bucket),
+                        snapshot.total_items,
+                        snapshot.last_update,
+                        snapshot.source_mode,
+                        self._DEFAULT_IMAGE_TEMPLATE,
+                        None,
+                        str(self.config.get("dark_time_start", "18:00")),
+                        str(self.config.get("dark_time_end", "06:00")),
+                        self._is_debug_enabled(),
+                    )
 
-            try:
                 self._log_debug(
                     f"图片渲染完成，URL: {image_url[:100] if len(image_url) > 100 else image_url}"
                 )
                 if not image_url:
                     raise ValueError("html_render 返回了空的图片 URL/路径")
+                if self._is_image_post_process_enabled():
+                    self._log_debug("已启用图片后处理，尝试裁剪主卡片外白色背景。")
+                    image_url = crop_outer_white_background(image_url)
                 yield event.image_result(image_url)
                 return
             except Exception as exc:  # noqa: BLE001
