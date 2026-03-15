@@ -70,3 +70,11 @@
 - [AstrBot](https://github.com/AstrBot/AstrBot) 本项目借鉴了该项目中的代码以实现区分管理员与非管理员、私聊与群聊
 - [astrbot 帮助插件](https://github.com/tinkerbellqwq/astrbot_plugin_help) 本项目引用了该项目中的代码以实现metadata模式
 - [插件变更提醒](https://github.com/PyuraMazo/astrbot_plugin_alteration_notifier) 本项目引用了该项目中的代码以实现监测插件变更功能
+
+## 注
+本项目主体代码完全由AI模型完成，尽管经过本人审核，但可能存在一些未被发现的bug，欢迎提出issue
+本项目使用到的AI有：
+来自 OpenAI 的诸多 Codex 系列模型以及其提供的云端服务
+来自 Kimi 的 K2.5
+来自 MiniMax 的 M2.5
+来自 GLM 的 GLM5.0
