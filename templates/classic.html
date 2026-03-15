@@ -13,11 +13,12 @@ html, body {
   width: fit-content;
   height: fit-content;
   display: inline-block;
+  overflow: hidden;
 }
 </style>
 </head>
 <body>
-<div style="width:fit-content;min-width:600px;max-width:940px;margin:0;background:linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(245,250,255,0.45) 100%);border:1px solid rgba(165,195,232,0.4);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 18px 48px rgba(72,105,151,0.15), inset 0 0 0 1px rgba(255,255,255,0.8);backdrop-filter:blur(16px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;position:relative;overflow:hidden;">
+<div id="helpmenu-capture-root" style="width:fit-content;min-width:600px;max-width:940px;margin:0;background:linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(245,250,255,0.45) 100%);border:1px solid rgba(165,195,232,0.4);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 18px 48px rgba(72,105,151,0.15), inset 0 0 0 1px rgba(255,255,255,0.8);backdrop-filter:blur(16px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;position:relative;overflow:hidden;">
   <div style="font-size:24px;color:#17395b;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;text-shadow:0 1px 2px rgba(255,255,255,0.8);">帮助菜单</div>
   <div style="font-size:14px;color:#304962;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
@@ -54,5 +55,28 @@ html, body {
     {% endfor %}
   </div>
 </div>
+<script>
+(() => {
+  const root = document.getElementById("helpmenu-capture-root");
+  if (!root) {
+    return;
+  }
+
+  const resizeCanvas = () => {
+    const rect = root.getBoundingClientRect();
+    const width = Math.max(1, Math.ceil(rect.width));
+    const height = Math.max(1, Math.ceil(rect.height));
+    document.documentElement.style.width = `${width}px`;
+    document.documentElement.style.height = `${height}px`;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.width = `${width}px`;
+    document.body.style.height = `${height}px`;
+    document.body.style.overflow = "hidden";
+  };
+
+  resizeCanvas();
+  requestAnimationFrame(resizeCanvas);
+})();
+</script>
 </body>
 </html>
