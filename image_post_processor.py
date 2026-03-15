@@ -5,8 +5,8 @@ import importlib
 import importlib.util
 import tempfile
 from pathlib import Path
+import aiohttp
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
 from astrbot.api import logger
 
@@ -29,14 +29,17 @@ def _is_near_white(r: int, g: int, b: int, threshold: int) -> bool:
     return r >= threshold and g >= threshold and b >= threshold
 
 
-def _download_remote_image(image_ref: str) -> Path | None:
+async def _download_remote_image(image_ref: str) -> Path | None:
     parsed = urlparse(image_ref)
     if parsed.scheme not in {"http", "https"}:
         return None
 
+    timeout = aiohttp.ClientTimeout(total=20)
     try:
-        with urlopen(image_ref, timeout=20) as response:
-            content = response.read()
+        async with aiohttp.ClientSession(timeout=timeout, trust_env=False) as session:
+            async with session.get(image_ref) as response:
+                response.raise_for_status()
+                content = await response.read()
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "[helpmenu] Failed to download remote image for post-process: %s: %s",
@@ -62,7 +65,7 @@ def _download_remote_image(image_ref: str) -> Path | None:
     return local_path
 
 
-def crop_outer_white_background(
+async def crop_outer_white_background(
     image_ref: str, threshold: int = 248, alpha_threshold: int = 12
 ) -> str:
     """Crop transparent/near-white border area from a rendered help image.
@@ -77,7 +80,7 @@ def crop_outer_white_background(
     image_path = _resolve_local_path(image_ref)
     result_ref = image_ref
     if image_path is None:
-        downloaded_path = _download_remote_image(image_ref)
+        downloaded_path = await _download_remote_image(image_ref)
         if downloaded_path is None:
             return result_ref
         image_path = downloaded_path
