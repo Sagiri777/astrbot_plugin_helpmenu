@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.4")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.5")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
