@@ -27,7 +27,7 @@ def _is_near_white(r: int, g: int, b: int, threshold: int) -> bool:
 
 
 def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
-    """Crop near-white border area from a rendered help image.
+    """Crop transparent/near-white border area from a rendered help image.
 
     Returns the original image reference when post-processing is not possible.
     """
@@ -43,9 +43,9 @@ def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
     try:
         pil_image_module = importlib.import_module("PIL.Image")
         with pil_image_module.open(image_path) as image:
-            rgb_image = image.convert("RGB")
-            width, height = rgb_image.size
-            pixels = rgb_image.load()
+            rgba_image = image.convert("RGBA")
+            width, height = rgba_image.size
+            pixels = rgba_image.load()
 
             left = width
             top = height
@@ -54,7 +54,11 @@ def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
 
             for y in range(height):
                 for x in range(width):
-                    r, g, b = pixels[x, y]
+                    r, g, b, alpha = pixels[x, y]
+                    # 完全透明像素视作背景，需要被裁掉。
+                    if alpha == 0:
+                        continue
+                    # 白色背景也继续忽略，保持原有裁白边行为。
                     if _is_near_white(r, g, b, threshold):
                         continue
                     if x < left:
@@ -69,7 +73,7 @@ def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
             if right < left or bottom < top:
                 return image_ref
 
-            cropped = image.crop((left, top, right + 1, bottom + 1))
+            cropped = rgba_image.crop((left, top, right + 1, bottom + 1))
             cropped.save(image_path)
     except Exception as exc:  # noqa: BLE001
         logger.warning(
