@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.6")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.9")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -608,7 +608,7 @@ class MyPlugin(Star):
         self._log_debug("收到 helpMenu imageTest 命令请求")
 
         try:
-            from .tests.image_test import run_image_test_command
+            from .image_test_toolkit import run_image_test_command
 
             image_url, fallback_message = await run_image_test_command(
                 self.html_render,
