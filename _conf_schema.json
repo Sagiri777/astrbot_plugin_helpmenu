@@ -22,8 +22,8 @@
   "post_process_image": {
     "description": "后处理图片",
     "type": "bool",
-    "hint": "仅在 output_mode=image 时生效；开启后将识别并裁剪主卡片外的白色背景。",
-    "default": false
+    "hint": "仅在 output_mode=image 时生效；默认开启，自动裁剪主卡片外的透明/白色边缘（含右侧残留边）。",
+    "default": true
   },
   "admin_name": {
     "description": "登录ASTR后台的用户名",

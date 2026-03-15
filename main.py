@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.5")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.6")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -116,7 +116,7 @@ class MyPlugin(Star):
         return self._OUTPUT_TEXT
 
     def _is_image_post_process_enabled(self) -> bool:
-        return bool(self.config.get("post_process_image", False))
+        return bool(self.config.get("post_process_image", True))
 
     @property
     def _templates_dir(self) -> Path:
