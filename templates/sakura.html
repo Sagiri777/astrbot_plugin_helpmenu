@@ -18,7 +18,7 @@ html, body {
 </style>
 </head>
 <body>
-<div id="helpmenu-capture-root" style="display:inline-block;width:auto;min-width:600px;max-width:940px;background:linear-gradient(135deg, rgba(255,245,250,0.72) 0%, rgba(255,240,248,0.6) 100%);border:1px solid rgba(255,182,215,0.45);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 48px rgba(220,80,140,0.10), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(18px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+<div id="helpmenu-capture-root" style="display:inline-block;{% if template_layout_mode == 'normal' %}width:fit-content;min-width:0;{% else %}width:auto;min-width:600px;{% endif %}max-width:940px;background:linear-gradient(135deg, rgba(255,245,250,0.72) 0%, rgba(255,240,248,0.6) 100%);border:1px solid rgba(255,182,215,0.45);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 48px rgba(220,80,140,0.10), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(18px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
   <div style="font-size:24px;color:#8a2550;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;">帮助菜单</div>
   <div style="font-size:14px;color:#b05080;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
@@ -26,9 +26,9 @@ html, body {
     {{ warning }}
   </div>
   {% endif %}
-  <div style="margin-top:14px;column-count:3;column-gap:12px;">
+  <div style="margin-top:14px;{% if template_layout_mode == 'normal' %}display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;{% else %}column-count:3;column-gap:12px;{% endif %}">
     {% for card in cards %}
-    <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(255,182,215,0.5);border-radius:16px;background:linear-gradient(160deg,rgba(255,255,255,0.80) 0%,rgba(255,234,246,0.60) 100%);box-shadow:0 8px 24px rgba(210,80,130,0.09), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(12px);position:relative;overflow:hidden;">
+    <div style="display:block;width:100%;margin:0 0 12px;padding:12px;box-sizing:border-box;{% if template_layout_mode != 'normal' %}break-inside:avoid-column;page-break-inside:avoid;{% endif %}border:1px solid rgba(255,182,215,0.5);border-radius:16px;background:linear-gradient(160deg,rgba(255,255,255,0.80) 0%,rgba(255,234,246,0.60) 100%);box-shadow:0 8px 24px rgba(210,80,130,0.09), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(12px);position:relative;overflow:hidden;">
       <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg, #ec4899, #f472b6, #f9a8d4);"></div>
       <div style="font-size:17px;color:#8a2550;font-weight:720;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>
       {% if card.continued %}

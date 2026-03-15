@@ -18,7 +18,7 @@ html, body {
 </style>
 </head>
 <body>
-<div id="helpmenu-capture-root" style="display:inline-block;width:auto;min-width:600px;max-width:940px;background:rgba(45,40,35,0.75);border:1px solid rgba(140,110,80,0.5);border-radius:22px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(0,0,0,0.35);backdrop-filter:blur(16px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+<div id="helpmenu-capture-root" style="display:inline-block;{% if template_layout_mode == 'normal' %}width:fit-content;min-width:0;{% else %}width:auto;min-width:600px;{% endif %}max-width:940px;background:rgba(45,40,35,0.75);border:1px solid rgba(140,110,80,0.5);border-radius:22px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(0,0,0,0.35);backdrop-filter:blur(16px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
   <div style="font-size:24px;color:#f3e8dd;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;">帮助菜单</div>
   <div style="font-size:14px;color:#e8d8c8;line-height:1.54;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
@@ -26,9 +26,9 @@ html, body {
     {{ warning }}
   </div>
   {% endif %}
-  <div style="margin-top:12px;column-count:3;column-gap:10px;">
+  <div style="margin-top:12px;{% if template_layout_mode == 'normal' %}display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;{% else %}column-count:3;column-gap:10px;{% endif %}">
     {% for card in cards %}
-    <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(130,100,70,0.5);border-radius:14px;background:linear-gradient(165deg,rgba(55,50,42,0.8) 0%,rgba(48,42,35,0.7) 100%);box-shadow:0 8px 20px rgba(0,0,0,0.3);backdrop-filter:blur(10px);">
+    <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;{% if template_layout_mode != 'normal' %}break-inside:avoid-column;page-break-inside:avoid;{% endif %}border:1px solid rgba(130,100,70,0.5);border-radius:14px;background:linear-gradient(165deg,rgba(55,50,42,0.8) 0%,rgba(48,42,35,0.7) 100%);box-shadow:0 8px 20px rgba(0,0,0,0.3);backdrop-filter:blur(10px);">
       <div style="display:flex;align-items:flex-start;gap:6px;">
         <span style="width:8px;height:8px;border-radius:999px;background:linear-gradient(135deg,#d48040,#c06020);display:inline-block;flex:0 0 auto;margin-top:6px;box-shadow:0 0 10px rgba(200,100,40,0.4);"></span>
         <div style="font-size:15px;color:#fcf3eb;font-weight:700;line-height:1.32;word-break:break-word;overflow-wrap:anywhere;">{{ card.plugin }}</div>

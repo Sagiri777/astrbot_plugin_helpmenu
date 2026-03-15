@@ -18,7 +18,7 @@ html, body {
 </style>
 </head>
 <body>
-<div id="helpmenu-capture-root" style="display:inline-block;width:auto;min-width:600px;max-width:940px;background:linear-gradient(135deg, rgba(255,250,245,0.7) 0%, rgba(255,240,230,0.55) 100%);border:1px solid rgba(241,198,159,0.5);border-radius:22px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(141,82,35,0.13), inset 0 0 0 1px rgba(255,255,255,0.8);backdrop-filter:blur(16px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+<div id="helpmenu-capture-root" style="display:inline-block;{% if template_layout_mode == 'normal' %}width:fit-content;min-width:0;{% else %}width:auto;min-width:600px;{% endif %}max-width:940px;background:linear-gradient(135deg, rgba(255,250,245,0.7) 0%, rgba(255,240,230,0.55) 100%);border:1px solid rgba(241,198,159,0.5);border-radius:22px;padding:18px;box-sizing:border-box;box-shadow:0 16px 36px rgba(141,82,35,0.13), inset 0 0 0 1px rgba(255,255,255,0.8);backdrop-filter:blur(16px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
   <div style="font-size:24px;color:#5c3418;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;text-shadow:0 1px 2px rgba(255,255,255,0.7), 0 0 10px rgba(251,146,60,0.2);">帮助菜单</div>
   <div style="font-size:14px;color:#714426;line-height:1.54;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
@@ -26,9 +26,9 @@ html, body {
     {{ warning }}
   </div>
   {% endif %}
-  <div style="margin-top:12px;column-count:3;column-gap:10px;">
+  <div style="margin-top:12px;{% if template_layout_mode == 'normal' %}display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;{% else %}column-count:3;column-gap:10px;{% endif %}">
     {% for card in cards %}
-    <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;border:1px solid rgba(242,201,164,0.6);border-radius:14px;background:linear-gradient(165deg,rgba(255,255,255,0.74) 0%,rgba(255,242,230,0.56) 100%);box-shadow:0 8px 20px rgba(146,85,36,0.11), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(10px);position:relative;overflow:hidden;">
+    <div style="display:block;width:100%;margin:0 0 10px;padding:10px;box-sizing:border-box;{% if template_layout_mode != 'normal' %}break-inside:avoid-column;page-break-inside:avoid;{% endif %}border:1px solid rgba(242,201,164,0.6);border-radius:14px;background:linear-gradient(165deg,rgba(255,255,255,0.74) 0%,rgba(255,242,230,0.56) 100%);box-shadow:0 8px 20px rgba(146,85,36,0.11), inset 0 0 0 1px rgba(255,255,255,0.9);backdrop-filter:blur(10px);position:relative;overflow:hidden;">
       <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg, #fb923c, #f97316);"></div>
       <div style="display:flex;align-items:flex-start;gap:6px;">
         <span style="width:8px;height:8px;border-radius:999px;background:linear-gradient(135deg,#fb923c,#f97316);display:inline-block;flex:0 0 auto;margin-top:6px;box-shadow:0 0 10px rgba(249,115,22,0.5);"></span>

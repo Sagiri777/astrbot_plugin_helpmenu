@@ -65,3 +65,41 @@ def test_crop_outer_white_background_ignores_near_transparent_edge(
     assert result_ref == str(image_path)
     with pil_image.open(image_path) as cropped:
         assert cropped.size == (14, 8)
+
+
+def test_crop_outer_white_background_downloads_remote_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pil_image = pytest.importorskip("PIL.Image")
+
+    class _FakeResp:
+        def __init__(self, payload: bytes):
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return self._payload
+
+    source_path = tmp_path / "source.png"
+    image = pil_image.new("RGBA", (12, 12), (255, 255, 255, 0))
+    for x in range(3, 9):
+        for y in range(4, 8):
+            image.putpixel((x, y), (20, 120, 220, 255))
+    image.save(source_path)
+    payload = source_path.read_bytes()
+
+    monkeypatch.setattr(
+        IMAGE_POST_PROCESSOR, "urlopen", lambda *_args, **_kwargs: _FakeResp(payload)
+    )
+
+    result_ref = crop_outer_white_background("https://example.com/image.png")
+
+    result_path = Path(result_ref)
+    assert result_path.exists()
+    with pil_image.open(result_path) as cropped:
+        assert cropped.size == (6, 4)

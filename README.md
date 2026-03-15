@@ -21,6 +21,7 @@
 - `fetch_mode`：命令文档获取模式，`metadata` 或 `api`，默认 `metadata`。
 - `output_mode`：帮助菜单输出模式，`text` 或 `image`，默认 `text`。
 - `image_template`：图片模板风格，`classic` / `frost` / `compact` / `ember_industrial`，默认 `classic`。
+- `template_layout_mode`：图片模板布局模式，`flow`（流式多列）或 `normal`（常规网格），默认 `flow`。
 - 图片渲染参数已内置为经过测试的默认值（PNG、整页截图、禁用动画、隐藏光标、CSS 缩放），无需额外配置。
 - `admin_name`：Dashboard 登录用户名（仅 `api` 模式需要）。
 - `admin_password`：Dashboard 登录密码（仅 `api` 模式需要）。

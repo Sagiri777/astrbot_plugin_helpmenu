@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.9")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.14")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -117,6 +117,16 @@ class MyPlugin(Star):
 
     def _is_image_post_process_enabled(self) -> bool:
         return bool(self.config.get("post_process_image", True))
+
+    def _get_template_layout_mode(self) -> str:
+        mode = str(self.config.get("template_layout_mode") or "flow").strip().lower()
+        if mode in {"flow", "normal"}:
+            return mode
+        logger.warning(
+            "[helpmenu] 未知 template_layout_mode=%s，将回退为 flow。",
+            mode,
+        )
+        return "flow"
 
     @property
     def _templates_dir(self) -> Path:
@@ -711,6 +721,7 @@ class MyPlugin(Star):
                         self.config.get("dark_template"),
                         str(self.config.get("dark_time_start", "18:00")),
                         str(self.config.get("dark_time_end", "06:00")),
+                        self._get_template_layout_mode(),
                         self._is_debug_enabled(),
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -731,6 +742,7 @@ class MyPlugin(Star):
                         None,
                         str(self.config.get("dark_time_start", "18:00")),
                         str(self.config.get("dark_time_end", "06:00")),
+                        self._get_template_layout_mode(),
                         self._is_debug_enabled(),
                     )
 
