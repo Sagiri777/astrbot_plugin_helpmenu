@@ -10,15 +10,15 @@
 }
 html, body {
   background: transparent;
-  width: fit-content;
-  height: fit-content;
+  width: auto;
+  height: auto;
   display: inline-block;
   overflow: hidden;
 }
 </style>
 </head>
 <body>
-<div id="helpmenu-capture-root" style="width:fit-content;min-width:600px;max-width:940px;background:rgba(35,45,58,0.7);border:1px solid rgba(70,110,150,0.5);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 42px rgba(0,0,0,0.35);backdrop-filter:blur(17px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+<div id="helpmenu-capture-root" style="display:inline-block;width:auto;min-width:600px;max-width:940px;background:rgba(35,45,58,0.7);border:1px solid rgba(70,110,150,0.5);border-radius:24px;padding:20px;box-sizing:border-box;box-shadow:0 16px 42px rgba(0,0,0,0.35);backdrop-filter:blur(17px);font-family:'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
   <div style="font-size:24px;color:#d0e6f5;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:1px;">帮助菜单</div>
   <div style="font-size:14px;color:#8ab4d0;line-height:1.55;font-weight:520;">{{ subtitle }}</div>
   {% if warning %}
