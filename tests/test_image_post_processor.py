@@ -40,3 +40,28 @@ def test_crop_outer_white_background_removes_transparent_border(tmp_path: Path) 
 def test_crop_outer_white_background_keeps_missing_file() -> None:
     missing_ref = "/tmp/does-not-exist.png"
     assert crop_outer_white_background(missing_ref) == missing_ref
+
+
+def test_crop_outer_white_background_ignores_near_transparent_edge(
+    tmp_path: Path,
+) -> None:
+    pil_image = pytest.importorskip("PIL.Image")
+
+    image_path = tmp_path / "near_transparent.png"
+    image = pil_image.new("RGBA", (18, 12), (255, 255, 255, 0))
+
+    for x in range(2, 16):
+        for y in range(2, 10):
+            image.putpixel((x, y), (0, 120, 255, 255))
+
+    # Simulate a residual anti-aliased edge produced by browser screenshots.
+    for y in range(12):
+        image.putpixel((17, y), (255, 255, 255, 6))
+
+    image.save(image_path)
+
+    result_ref = crop_outer_white_background(str(image_path))
+
+    assert result_ref == str(image_path)
+    with pil_image.open(image_path) as cropped:
+        assert cropped.size == (14, 8)

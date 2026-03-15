@@ -26,7 +26,9 @@ def _is_near_white(r: int, g: int, b: int, threshold: int) -> bool:
     return r >= threshold and g >= threshold and b >= threshold
 
 
-def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
+def crop_outer_white_background(
+    image_ref: str, threshold: int = 248, alpha_threshold: int = 12
+) -> str:
     """Crop transparent/near-white border area from a rendered help image.
 
     Returns the original image reference when post-processing is not possible.
@@ -56,7 +58,7 @@ def crop_outer_white_background(image_ref: str, threshold: int = 248) -> str:
                 for x in range(width):
                     r, g, b, alpha = pixels[x, y]
                     # 完全透明像素视作背景，需要被裁掉。
-                    if alpha == 0:
+                    if alpha <= alpha_threshold:
                         continue
                     # 白色背景也继续忽略，保持原有裁白边行为。
                     if _is_near_white(r, g, b, threshold):
