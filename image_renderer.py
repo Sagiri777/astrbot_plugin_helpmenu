@@ -6,17 +6,28 @@ from astrbot.api import logger
 
 DEFAULT_IMAGE_RENDER_OPTIONS = {
     "type": "png",
-    "full_page": False,
-    "omit_background": True,
+    "full_page": True,
     "animations": "disabled",
     "caret": "hide",
-    "scale": 1.0,
+    "scale": "css",
 }
 
 MINIMAL_IMAGE_RENDER_OPTIONS = {
     "type": "png",
     "full_page": False,
     "omit_background": True,
+}
+
+LEGACY_IMAGE_RENDER_OPTIONS = {
+    "type": "png",
+    "full_page": True,
+    "animations": "disabled",
+    "caret": "hide",
+    "scale": "css",
+}
+
+ULTRA_MINIMAL_IMAGE_RENDER_OPTIONS = {
+    "type": "png",
 }
 
 DEFAULT_IMAGE_TEMPLATE = "classic"
@@ -293,28 +304,45 @@ async def render_help_page_as_image(
 
         # 调用 html_render 生成图片
         log_debug("调用 html_render 开始渲染...")
-        try:
-            result = await html_render_func(
-                template_content,
-                data,
-                options=DEFAULT_IMAGE_RENDER_OPTIONS,
-            )
-        except Exception as exc:
-            if not is_http_422_error(exc):
-                raise
+        option_attempts = [
+            ("default", DEFAULT_IMAGE_RENDER_OPTIONS),
+            ("minimal", MINIMAL_IMAGE_RENDER_OPTIONS),
+            ("legacy", LEGACY_IMAGE_RENDER_OPTIONS),
+            ("ultra_minimal", ULTRA_MINIMAL_IMAGE_RENDER_OPTIONS),
+        ]
 
-            logger.warning(
-                "[helpmenu] 默认文转图参数被端点拒绝(422)，已自动回退最小兼容参数重试。"
-            )
-            log_debug(
-                f"默认参数渲染失败(422): {type(exc).__name__}: {exc}; "
-                f"使用最小兼容参数重试: {json.dumps(MINIMAL_IMAGE_RENDER_OPTIONS, ensure_ascii=False)}"
-            )
-            result = await html_render_func(
-                template_content,
-                data,
-                options=MINIMAL_IMAGE_RENDER_OPTIONS,
-            )
+        last_error: Exception | None = None
+        result = None
+        for attempt_name, options in option_attempts:
+            try:
+                log_debug(
+                    f"尝试文转图参数[{attempt_name}]: {json.dumps(options, ensure_ascii=False)}"
+                )
+                result = await html_render_func(
+                    template_content,
+                    data,
+                    options=options,
+                )
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                if is_http_422_error(exc):
+                    logger.warning(
+                        "[helpmenu] 文转图参数[%s]被端点拒绝(422)，尝试下一组兼容参数。",
+                        attempt_name,
+                    )
+                else:
+                    logger.warning(
+                        "[helpmenu] 文转图参数[%s]渲染失败: %s: %s，尝试下一组参数。",
+                        attempt_name,
+                        type(exc).__name__,
+                        exc,
+                    )
+                log_debug(f"参数[{attempt_name}]失败: {type(exc).__name__}: {exc}")
+        if result is None:
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError("html_render 未返回结果")
 
         return normalize_image_result(result)
     except Exception as exc:

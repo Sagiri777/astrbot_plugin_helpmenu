@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.0")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.2")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -42,11 +42,10 @@ class MyPlugin(Star):
     _DEFAULT_IMAGE_TEMPLATE = "classic"
     _DEFAULT_IMAGE_RENDER_OPTIONS = {
         "type": "png",
-        "full_page": False,
-        "omit_background": True,
+        "full_page": True,
         "animations": "disabled",
         "caret": "hide",
-        "scale": 1.0,
+        "scale": "css",
     }
 
     def __init__(self, context: Context, config: AstrBotConfig):
