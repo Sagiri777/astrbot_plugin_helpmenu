@@ -1,6 +1,6 @@
 # astrbot_plugin_helpmenu
 
-为 AstrBot 自动生成可翻页的帮助菜单，支持文本输出与图片输出。
+为 AstrBot 生成更好的可翻页的帮助菜单，支持文本输出与图片输出。
 
 ## 功能概览
 
@@ -10,7 +10,7 @@
 - 支持两种输出模式：
   - `text`：文本分页输出。
   - `image`：通过 HTML 模板渲染帮助菜单图片。
-- 支持图片模板：`classic`、`frost`、`compact`、`ember_industrial`（暖色现代工业风）。
+- 支持图片模板：`classic`、`frost`、`compact`、`ember_industrial`、 `sakura`
 - 支持会话分页浏览：`/helpMenu`、`/helpMenu <页码>`、`/helpMenu next`、`/helpMenu prev`。
 - 支持管理员刷新：`/updateHelpMenu`。
 - 插件加载/卸载事件发生时会自动刷新帮助菜单缓存。
@@ -19,10 +19,9 @@
 ## 配置项
 
 - `fetch_mode`：命令文档获取模式，`metadata` 或 `api`，默认 `metadata`。
-- `output_mode`：帮助菜单输出模式，`text` 或 `image`，默认 `text`。
-- `image_template`：图片模板风格，`classic` / `frost` / `compact` / `ember_industrial`，默认 `classic`。
+- `output_mode`：帮助菜单输出模式，`text` 或 `image`，默认 `image`。
+- `image_template`：图片模板风格，`classic` / `frost` / `compact` / `ember_industrial` / `sakura`，默认 `classic`。
 - `template_layout_mode`：图片模板布局模式，`flow`（流式多列）或 `normal`（常规网格），默认 `flow`。
-- 图片渲染参数已内置为经过测试的默认值（PNG、整页截图、禁用动画、隐藏光标、CSS 缩放），无需额外配置。
 - `admin_name`：Dashboard 登录用户名（仅 `api` 模式需要）。
 - `admin_password`：Dashboard 登录密码（仅 `api` 模式需要）。
 - `ASTRHost`：Dashboard 地址，默认 `http://127.0.0.1:6185`（仅 `api` 模式需要）。
@@ -40,7 +39,8 @@
   - 查看上一页。
 - `/updateHelpMenu`
   - 立即刷新帮助菜单缓存（仅管理员）。
-
+- `/helpMenu imageTest`
+  - 检测插件能否正常调用t2i服务。
 ## 行为说明
 
 - 文档头部会显示：
@@ -67,6 +67,6 @@
 
 本项目借鉴、引用了以下项目中的部分代码：
 
-- [AstrBot](https://github.com/AstrBot/AstrBot)
-- [astrbot 帮助插件](https://github.com/tinkerbellqwq/astrbot_plugin_help)
-- [插件变更提醒](https://github.com/PyuraMazo/astrbot_plugin_alteration_notifier)
+- [AstrBot](https://github.com/AstrBot/AstrBot) 本项目借鉴了该项目中的代码以实现区分管理员与非管理员、私聊与群聊
+- [astrbot 帮助插件](https://github.com/tinkerbellqwq/astrbot_plugin_help) 本项目引用了该项目中的代码以实现metadata模式
+- [插件变更提醒](https://github.com/PyuraMazo/astrbot_plugin_alteration_notifier) 本项目引用了该项目中的代码以实现监测插件变更功能
