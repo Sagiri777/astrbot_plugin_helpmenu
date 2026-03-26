@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+
 from astrbot.core.utils.http_ssl import build_tls_connector
 
 FALLBACK_T2I_ENDPOINT = "https://t2i.soulter.top/text2img"

@@ -5,8 +5,9 @@ import importlib
 import importlib.util
 import tempfile
 from pathlib import Path
-import aiohttp
 from urllib.parse import urlparse
+
+import aiohttp
 
 from astrbot.api import logger
 
