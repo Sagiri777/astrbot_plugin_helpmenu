@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.6")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.8")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -575,14 +575,18 @@ class MyPlugin(Star):
             return page, warning
 
     @filter.on_plugin_loaded()
-    async def on_plugin_loaded(self, metadata):
+    async def on_plugin_loaded(self, metadata=None):
+        if metadata is None:
+            return
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "加载",
         )
 
     @filter.on_plugin_unloaded()
-    async def on_plugin_unloaded(self, metadata):
+    async def on_plugin_unloaded(self, metadata=None):
+        if metadata is None:
+            return
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "卸载",
