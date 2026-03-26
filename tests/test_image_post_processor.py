@@ -1,5 +1,6 @@
 import sys
 import types
+import asyncio
 from importlib import util
 from pathlib import Path
 
@@ -11,6 +12,11 @@ fake_astrbot_api.logger = types.SimpleNamespace(warning=lambda *args, **kwargs: 
 fake_astrbot.api = fake_astrbot_api
 sys.modules.setdefault("astrbot", fake_astrbot)
 sys.modules.setdefault("astrbot.api", fake_astrbot_api)
+
+fake_aiohttp = types.ModuleType("aiohttp")
+fake_aiohttp.ClientTimeout = lambda *args, **kwargs: None
+fake_aiohttp.ClientSession = object
+sys.modules.setdefault("aiohttp", fake_aiohttp)
 
 MODULE_PATH = Path(__file__).resolve().parent.parent / "image_post_processor.py"
 SPEC = util.spec_from_file_location("image_post_processor", MODULE_PATH)
@@ -30,7 +36,7 @@ def test_crop_outer_white_background_removes_transparent_border(tmp_path: Path) 
             image.putpixel((x, y), (255, 0, 0, 255))
     image.save(image_path)
 
-    result_ref = crop_outer_white_background(str(image_path))
+    result_ref = asyncio.run(crop_outer_white_background(str(image_path)))
 
     assert result_ref == str(image_path)
     with pil_image.open(image_path) as cropped:
@@ -39,7 +45,7 @@ def test_crop_outer_white_background_removes_transparent_border(tmp_path: Path) 
 
 def test_crop_outer_white_background_keeps_missing_file() -> None:
     missing_ref = "/tmp/does-not-exist.png"
-    assert crop_outer_white_background(missing_ref) == missing_ref
+    assert asyncio.run(crop_outer_white_background(missing_ref)) == missing_ref
 
 
 def test_crop_outer_white_background_ignores_near_transparent_edge(
@@ -60,8 +66,35 @@ def test_crop_outer_white_background_ignores_near_transparent_edge(
 
     image.save(image_path)
 
-    result_ref = crop_outer_white_background(str(image_path))
+    result_ref = asyncio.run(crop_outer_white_background(str(image_path)))
 
     assert result_ref == str(image_path)
     with pil_image.open(image_path) as cropped:
         assert cropped.size == (14, 8)
+
+
+def test_crop_outer_white_background_downloads_remote_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pil_image = pytest.importorskip("PIL.Image")
+
+    source_path = tmp_path / "source.png"
+    image = pil_image.new("RGBA", (12, 12), (255, 255, 255, 0))
+    for x in range(3, 9):
+        for y in range(4, 8):
+            image.putpixel((x, y), (20, 120, 220, 255))
+    image.save(source_path)
+
+    async def _fake_download(_image_ref: str) -> Path:
+        return source_path
+
+    monkeypatch.setattr(IMAGE_POST_PROCESSOR, "_download_remote_image", _fake_download)
+
+    result_ref = asyncio.run(
+        crop_outer_white_background("https://example.com/image.png")
+    )
+
+    result_path = Path(result_ref)
+    assert result_path.exists()
+    with pil_image.open(result_path) as cropped:
+        assert cropped.size == (6, 4)

@@ -30,7 +30,7 @@ class HelpCacheSnapshot:
     source_mode: str
 
 
-@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.8")
+@register("helpmenu", "Sagiri777", "自动生成可翻页的指令帮助菜单", "1.0.15")
 class MyPlugin(Star):
     _SESSION_PAGE_CACHE_MAX_SIZE = 1024
     _MAX_SESSION_KEY_LEN = 128
@@ -117,6 +117,16 @@ class MyPlugin(Star):
 
     def _is_image_post_process_enabled(self) -> bool:
         return bool(self.config.get("post_process_image", True))
+
+    def _get_template_layout_mode(self) -> str:
+        mode = str(self.config.get("template_layout_mode") or "flow").strip().lower()
+        if mode in {"flow", "normal"}:
+            return mode
+        logger.warning(
+            "[helpmenu] 未知 template_layout_mode=%s，将回退为 flow。",
+            mode,
+        )
+        return "flow"
 
     @property
     def _templates_dir(self) -> Path:
@@ -575,18 +585,14 @@ class MyPlugin(Star):
             return page, warning
 
     @filter.on_plugin_loaded()
-    async def on_plugin_loaded(self, metadata=None):
-        if metadata is None:
-            return
+    async def on_plugin_loaded(self, event: AstrMessageEvent, metadata):
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "加载",
         )
 
     @filter.on_plugin_unloaded()
-    async def on_plugin_unloaded(self, metadata=None):
-        if metadata is None:
-            return
+    async def on_plugin_unloaded(self, event: AstrMessageEvent, metadata):
         await self._auto_refresh_for_plugin_change(
             str(getattr(metadata, "name", "") or "").strip(),
             "卸载",
@@ -612,7 +618,7 @@ class MyPlugin(Star):
         self._log_debug("收到 helpMenu imageTest 命令请求")
 
         try:
-            from .tests.image_test import run_image_test_command
+            from .image_test_toolkit import run_image_test_command
 
             image_url, fallback_message = await run_image_test_command(
                 self.html_render,
@@ -715,6 +721,7 @@ class MyPlugin(Star):
                         self.config.get("dark_template"),
                         str(self.config.get("dark_time_start", "18:00")),
                         str(self.config.get("dark_time_end", "06:00")),
+                        self._get_template_layout_mode(),
                         self._is_debug_enabled(),
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -735,6 +742,7 @@ class MyPlugin(Star):
                         None,
                         str(self.config.get("dark_time_start", "18:00")),
                         str(self.config.get("dark_time_end", "06:00")),
+                        self._get_template_layout_mode(),
                         self._is_debug_enabled(),
                     )
 
@@ -745,7 +753,7 @@ class MyPlugin(Star):
                     raise ValueError("html_render 返回了空的图片 URL/路径")
                 if self._is_image_post_process_enabled():
                     self._log_debug("已启用图片后处理，尝试裁剪主卡片外白色背景。")
-                    image_url = crop_outer_white_background(image_url)
+                    image_url = await crop_outer_white_background(image_url)
                 yield event.image_result(image_url)
                 return
             except Exception as exc:  # noqa: BLE001

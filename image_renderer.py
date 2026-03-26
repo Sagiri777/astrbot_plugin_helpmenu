@@ -112,6 +112,7 @@ def get_image_template_name(
     dark_template: str | None = None,
     dark_time_start: str = "18:00",
     dark_time_end: str = "06:00",
+    template_layout_mode: str = "flow",
     is_debug: bool = False,
 ) -> str:
     """获取图片模板名称。"""
@@ -160,6 +161,7 @@ def get_image_template(
     dark_template: str | None = None,
     dark_time_start: str = "18:00",
     dark_time_end: str = "06:00",
+    template_layout_mode: str = "flow",
     is_debug: bool = False,
 ) -> str:
     """获取图片模板内容。"""
@@ -227,6 +229,7 @@ async def render_help_page_as_image(
     dark_template: str | None = None,
     dark_time_start: str = "18:00",
     dark_time_end: str = "06:00",
+    template_layout_mode: str = "flow",
     is_debug: bool = False,
 ) -> str:
     """渲染帮助页面为图片。"""
@@ -243,6 +246,11 @@ async def render_help_page_as_image(
         ),
         "warning": warning.strip(),
         "cards": cards,
+        "template_layout_mode": (
+            "normal"
+            if str(template_layout_mode).strip().lower() == "normal"
+            else "flow"
+        ),
     }
 
     # Debug logging for image rendering
